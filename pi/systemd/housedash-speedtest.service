@@ -1,0 +1,7 @@
+[Unit]
+Description=House dashboard: speed test (runs if the configured interval has passed)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/housedash/speedtest.py
+Nice=15

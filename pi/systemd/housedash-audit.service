@@ -1,0 +1,8 @@
+[Unit]
+Description=House dashboard: nightly LAN audit (nmap diff)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/housedash/audit.py
+Nice=19
+IOSchedulingClass=idle

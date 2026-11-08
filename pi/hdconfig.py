@@ -17,9 +17,25 @@ DEFAULTS = {
         {"id": "pihole", "label": "Pi-hole", "on": True}, {"id": "pr", "label": "Printers", "on": True},
         {"id": "wg", "label": "VPN", "on": True}, {"id": "wiz", "label": "Lights", "on": True},
         {"id": "net", "label": "Internet · Pi", "on": True}, {"id": "sites", "label": "Websites", "on": True},
-        {"id": "cal", "label": "Calendar", "on": True},
+        {"id": "cal", "label": "Calendar", "on": True}, {"id": "flight", "label": "Flight brief", "on": True},
+        {"id": "radar", "label": "Radar · Tropics", "on": True}, {"id": "security", "label": "Security", "on": True},
     ],
-    "grid": {"columns": 4, "rows": 3},
+    "grid": {"columns": 5, "rows": 3},
+    # push notifications via ntfy (install the ntfy app, subscribe to the topic shown on the settings page)
+    "notify": {"on": True, "server": "https://ntfy.sh", "topic": "", "quiet_respect": True,
+               "events": {"new_device": True, "device_back": False, "person_home": True, "person_away": False,
+                          "print_done": True, "print_error": True, "site_down": True, "site_changed": True,
+                          "cert_expiring": True, "domain_expiring": True, "power": True, "canary": True, "audit": True,
+                          "storm": True, "test": True}},
+    "wol": [],          # [{"name": "Desktop", "mac": "aa:bb:cc:dd:ee:ff", "ip": "192.168.1.20"}]  wake-on-LAN targets
+    "people": [],       # [{"name": "Me", "ip": "192.168.1.30"}]  phones, for who's-home
+    "rules": {"lights_off_when_away": False, "away_minutes": 20},
+    "power": {"on": True},                       # PiSugar battery / mains watch (pisugar-server on :8423)
+    "speedtest": {"on": True, "interval_min": 60},
+    "flight": {"on": True, "max_wind_mph": 18, "max_kp": 5, "tfr_radius_nm": 40},
+    "radar": {"station": "KMOB"},                # NWS radar site id (radar.weather.gov)
+    "marine": {"zone": "GMZ650", "surf_office": "MOB"},   # NWS marine zone + the WFO that issues the surf-zone forecast
+    "security": {"canary_ports": [21, 23, 445, 3389, 5900, 1433], "audit_hour": 3, "audit_range": ""},
     "ticker": {
         "on": True, "speed": 95, "max_items": 70, "ufc": True, "label": "WIRE",
         "tags": {"UFC": "#ff8a8a", "HACK": "#3ddc84", "ESPORTS": "#d7a6ff", "GAMING": "#4cc2ff", "HN": "#ffb020", "DRONE": "#7fe0ff", "NEWS": "#e6edf3"},
@@ -39,7 +55,7 @@ DEFAULTS = {
         ],
     },
     # any US point works; the NWS grid is looked up from lat/lon automatically
-    "weather": {"label": "Foley AL", "lat": 30.4066, "lon": -87.6836, "fly_good_mph": 12, "fly_ok_mph": 18},
+    "weather": {"label": "Foley AL", "state": "AL", "lat": 30.4066, "lon": -87.6836, "fly_good_mph": 12, "fly_ok_mph": 18},
     "tides": {"station": "8731269", "label": "Gulf State Park Pier", "water_temp_station": "8735180"},
     "printers": {},     # ip: name  (Anycubic printers in LAN mode)
     "lights": {},       # ip: name  (WiZ bulbs)
@@ -73,7 +89,11 @@ def load():
                 with open(PATH) as f: over = json.load(f)
             except Exception:
                 over = {}
-        _cache["cfg"] = _merge(copy.deepcopy(DEFAULTS), over)
+        cfg = _merge(copy.deepcopy(DEFAULTS), over)
+        # a saved config predating a new card still gets it (appended, with the default's visibility)
+        have = {c["id"] for c in cfg["cards"]}
+        cfg["cards"] += [copy.deepcopy(c) for c in DEFAULTS["cards"] if c["id"] not in have]
+        _cache["cfg"] = cfg
         _cache["mtime"] = m
     return _cache["cfg"]
 

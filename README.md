@@ -21,9 +21,16 @@ Everything is configured from a settings page on the Pi (no files to edit), and 
 | **Internet · Pi** | ping, ipify, DNS | latency/loss every 10 s, public IP vs your DDNS name, Pi temp/load/mem/uptime |
 | **Websites** | HTTPS | up/down, response time, **TLS days left**, a **defacement fingerprint** of the home page; WordPress sites can add pending comments + Fluent Forms lead counts |
 | **Calendar** | any iCal/ICS URL | today + tomorrow from Google / iCloud / Outlook secret iCal links — no OAuth, no Google Cloud project |
+| **Flight brief** | FAA UASFM + Class Airspace layers, FAA TFR list, NOAA SWPC, Open-Meteo | airspace class and **LAANC ceiling** at your point, active **TFRs within N nm**, sunrise/sunset/golden hour, **Kp**, wind at 400 ft, and a GO / CAUTION / NO-GO verdict with reasons |
+| **Radar · Tropics** | radar.weather.gov, NHC CurrentStorms | your NWS radar loop; active Atlantic systems (class, kt, mb, movement) with a push when a new one forms |
+| **Security** | built-in | **honeypot** on ports nothing should touch (ftp/telnet/smb/rdp/vnc/mssql) with every hit logged + pushed; **nightly nmap audit** of the LAN diffed against the last run (new hosts, new open ports) |
 | **The wire** | RSS + ESPN | UFC results & next card, hacker/infosec, esports, gaming, Hacker News, drones — every feed configurable, add your own |
 
-Plus **alerts**: a new MAC on the network puts a banner on every TV and plays a sound (bring your own clip); a known device coming back after hours away gets a quieter chime, rate-limited and silent during quiet hours. The same alerts can run on a Windows PC as a small system-tray app.
+Also folded into existing cards: **who's home** (phones by IP, home/away with "since") and **Wake-on-LAN buttons** on the Devices card; **PiSugar battery / mains** and an hourly **speed-test sparkline** on the Internet card; **rip-current risk** and the marine forecast on the Tide card; **domain expiry** (RDAP) next to the TLS days on Websites.
+
+**Alerts** come in three layers: a banner + sound on every TV (new device loud, returning device a quiet chime, rate-limited, silent in quiet hours); a Windows **tray app** doing the same on your desk; and **push notifications** to your phone through [ntfy](https://ntfy.sh) — new device, someone home/away, print finished or errored, site down/back, page changed, cert or domain expiring, power lost/restored, honeypot hit, audit changes, new tropical storm. Each event has its own on/off switch on the settings page; quiet hours deliver silently.
+
+**Controls** (phone/PC view, hidden on the TV): tap a bulb to toggle it, all-on / all-off, wake a PC; optional rule turns every light off when everyone has been away N minutes.
 
 ![TV remote: QR popup](docs/tv-qr.png)
 
@@ -45,7 +52,13 @@ Open the settings page and fill in what you have: house name, lat/lon (the NWS g
 
 Re-run `install.sh` to update after a `git pull`.
 
-> The settings page has no login: it is meant for a home LAN (and your own VPN). Don't port-forward 8089.
+> The settings page has no login: it is meant for a home LAN (and your own VPN). Don't port-forward 8089. The `/api/*` actions (lights, wake) live on the same port for the same reason.
+
+### Phone notifications
+The settings page's **notify** section shows a private topic it minted for you. Install the ntfy app (Android/iOS), subscribe to that topic on `ntfy.sh` (or point `server` at your own ntfy), hit *Send a test*. Done — works on any network, no VPN needed. Don't share the topic: anyone with it can post to your phone.
+
+### Optional: recursive DNS with Unbound
+`sudo pi/extras/unbound-setup.sh` installs Unbound on `127.0.0.1#5335`, verifies it resolves and validates DNSSEC, then points Pi-hole at it — no upstream resolver sees your queries any more. The collector watches it; if Unbound stops answering, Pi-hole is switched back to Quad9 automatically and you get a push. `--undo` reverts.
 
 ### Sounds
 `pi/web/sounds/` ships a generated chime (`returned.mp3`). Drop your own `newdevice.mp3` (and optionally `.ogg`) next to it for the new-device alert — the author uses a certain famous battle cry, which is not something to redistribute.
@@ -83,7 +96,13 @@ pi/sites.py      every 20 s   websites
 pi/ticker.py     every 5 m    the wire (RSS + ESPN scoreboard)
 pi/gcal.py       every 5 m    iCal feeds
 pi/printers.py   live         Anycubic LAN-mode MQTT (venv: anycubic-lan)
-pi/setup.py      :8089        settings page -> /etc/housedash/config.json
+pi/canary.py     live         honeypot listeners -> security.json + push
+pi/audit.py      nightly      nmap diff of the LAN (timer, hour configurable)
+pi/speedtest.py  hourly       speedtest-cli history + sparkline (timer)
+pi/flight.py                  FAA / SWPC / Open-Meteo / NHC / NWS-marine helpers used by outdoors.py
+pi/notify.py                  ntfy push + local notification log
+pi/wizctl.py                  WiZ bulb control (used by the API and the away rule)
+pi/setup.py      :8089        settings page + /api (wake, light, lights, notify test) -> /etc/housedash/config.json
 pi/hdconfig.py                defaults + deep-merge; every service re-reads config each loop
 pi/web/index.html             the page; polls state.json, auto-scrolls overflowing cards, runs the wire and TV remote mode
 ```

@@ -1,0 +1,9 @@
+[Unit]
+Description=House dashboard: LAN audit, checked hourly, runs at the configured hour
+
+[Timer]
+OnCalendar=*-*-* *:07:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

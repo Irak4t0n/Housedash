@@ -9,7 +9,7 @@ PW_FILE = "/etc/housedash/pihole_password"   # all three overridden from config 
 API = "http://127.0.0.1/api"
 WG_IF = "wg0"
 FTL_DB = "/etc/pihole/pihole-FTL.db"
-import hdconfig
+import hdconfig, notify, wizctl
 WIZ = PRINTERS = HOSTS = WG_NAMES = {}   # filled from config each loop (see apply_cfg)
 
 _sid = None
@@ -84,6 +84,7 @@ def lan():
         for ip, lq, m, vendor, fs in rows:
             if m in macs and m not in _known:
                 new.append({"ip": ip, "mac": m, "vendor": vendor or "", "first": fs})
+                notify.send("new_device", "New device on the network", f"{ip}  {vendor or ''}  {m}", priority=4, tags=["rotating_light"], dedupe="new:" + m)
         _known |= macs
     try:
         with open(KNOWN_MACS + ".tmp", "w") as f: json.dump(sorted(_known), f)
@@ -103,19 +104,46 @@ def lan():
                 and now - _last_alert.get(m, 0) > RETURN_COOLDOWN):
             returned.append({"ip": ip, "mac": m, "name": names.get(ip) or vendor or ip, "away": lq - prev, "ts": lq})
             _last_alert[m] = now
+            notify.send("device_back", f"{names.get(ip) or vendor or ip} is back", f"away {round((lq - prev) / 3600, 1)} h · {ip}", dedupe="back:" + m)
         if prev is None or lq > prev: _last_seen[m] = lq
     _returns.extend(returned)
     del _returns[:max(0, len(_returns) - 20)]
     recent_ret = [r for r in _returns if now - r["ts"] < 600]
     return {"ok": True, "hosts": hosts, "active": active, "known": len(last), "new": new, "recent_new": recent,
-            "returned": recent_ret, "quiet": quiet_now()}
+            "returned": recent_ret, "quiet": quiet_now(), "people": people(last, now)}
+
+# ---- who's home: phones from config "people", present if Pi-hole saw a query from them recently ----
+_people_state = {}      # ip -> {"home": bool, "since": ts}
+AWAY_AFTER = 1200       # phones go quiet on Wi-Fi; 20 min without DNS = left
+
+def people(last, now):
+    out = []
+    for p in PEOPLE:
+        ip = p.get("ip"); lq = last.get(ip)
+        home = bool(lq and now - lq < AWAY_AFTER)
+        st = _people_state.get(ip)
+        if st is None:
+            _people_state[ip] = st = {"home": home, "since": lq or now}
+        elif st["home"] != home:
+            st.update(home=home, since=now)
+            if home: notify.send("person_home", f"{p['name']} is home", time.strftime("%-I:%M %p"), tags=["house"], dedupe="home:" + ip, dedupe_s=600)
+            else: notify.send("person_away", f"{p['name']} left", time.strftime("%-I:%M %p"), tags=["wave"], dedupe="away:" + ip, dedupe_s=600)
+        out.append({"name": p["name"], "ip": ip, "home": home, "since": st["since"], "seen": (now - lq) if lq else None})
+    return out
+
+def everyone_away(people_list, minutes):
+    if not people_list: return False
+    now = time.time()
+    return all((not p["home"]) and now - p["since"] > minutes * 60 for p in people_list)
 
 RETURN_GAP, RETURN_COOLDOWN, QUIET = 7200, 21600, (22, 7)   # overridden from config
 
+PEOPLE = []
 def apply_cfg(c):
-    global WIZ, PRINTERS, HOSTS, WG_NAMES, RETURN_GAP, RETURN_COOLDOWN, QUIET, PW_FILE, API, WG_IF
+    global WIZ, PRINTERS, HOSTS, WG_NAMES, RETURN_GAP, RETURN_COOLDOWN, QUIET, PW_FILE, API, WG_IF, PEOPLE, AWAY_AFTER
     n = c["network"]; PW_FILE, API, WG_IF = n["pihole_password_file"], n["pihole_api"], n["wg_interface"]
-    WIZ, PRINTERS, HOSTS, WG_NAMES = c["lights"], c["printers"], c["hosts"], c["wg_names"]
+    WIZ, PRINTERS, HOSTS, WG_NAMES, PEOPLE = c["lights"], c["printers"], c["hosts"], c["wg_names"], c.get("people", [])
+    AWAY_AFTER = max(300, int(c["rules"].get("away_minutes", 20)) * 60)
     a = c["alerts"]
     RETURN_GAP, RETURN_COOLDOWN, QUIET = int(a["return_gap_h"] * 3600), int(a["return_cooldown_h"] * 3600), (int(a["quiet_start"]), int(a["quiet_end"]))
 _last_seen = {}
@@ -137,6 +165,65 @@ def outdoors(): return _sidecar("outdoors")
 def sites(): return _sidecar("sites")          # written by sites.py (business websites)
 def calendar(): return _sidecar("calendar")    # written by gcal.py (iCal feeds)
 def ticker(): return _sidecar("ticker")        # written by ticker.py (UFC + hacker/esports/gaming/drone wire)
+def speed(): return _sidecar("speed")          # written by speedtest.py (hourly)
+def security(): return _sidecar("security")    # written by canary.py / audit.py
+
+# ---- PiSugar: battery + mains, via pisugar-server's TCP API on :8423 ----
+_power = {"plugged": None, "since": None}
+def power(cfg):
+    if not cfg.get("power", {}).get("on", True): return {"ok": False, "off": True}
+    try:
+        s = socket.create_connection(("127.0.0.1", 8423), timeout=2); out = {}
+        for k in ("battery", "battery_power_plugged", "battery_charging"):
+            s.sendall((f"get {k}\n").encode()); out[k] = s.recv(256).decode().split(":", 1)[-1].strip()
+        s.close()
+        plugged = out["battery_power_plugged"] == "true"; pct = round(float(out["battery"]))
+        now = int(time.time())
+        if _power["plugged"] is None: _power.update(plugged=plugged, since=now)
+        elif _power["plugged"] != plugged:
+            _power.update(plugged=plugged, since=now)
+            if plugged: notify.send("power", "Power is back", f"mains restored · battery {pct}%", tags=["electric_plug"])
+            else: notify.send("power", "POWER OUT", f"Pi on battery ({pct}%) - mains dropped", priority=5, tags=["zap"])
+        return {"ok": True, "pct": pct, "plugged": plugged, "charging": out["battery_charging"] == "true", "since": _power["since"]}
+    except Exception as e:
+        return {"ok": False, "err": str(e)[:50]}
+
+# ---- DNS guard: if Pi-hole's upstream is local unbound and it stops answering, fall back to Quad9 and notify ----
+_dns_fail = 0
+def dns_guard():
+    global _dns_fail
+    try:
+        ups = subprocess.run(["pihole-FTL", "--config", "dns.upstreams"], capture_output=True, text=True, timeout=5).stdout
+    except Exception:
+        return {"ok": False}
+    local = "127.0.0.1#5335" in ups
+    if not local: return {"ok": True, "upstream": "external"}
+    try:
+        r = subprocess.run(["dig", "@127.0.0.1", "-p", "5335", "+short", "+time=3", "+tries=1", "example.com"], capture_output=True, text=True, timeout=8)
+        good = r.returncode == 0 and r.stdout.strip() != ""
+    except Exception:
+        good = False
+    _dns_fail = 0 if good else _dns_fail + 1
+    if _dns_fail >= 3:
+        subprocess.run(["pihole-FTL", "--config", "dns.upstreams", '["9.9.9.9","149.112.112.112"]'], capture_output=True, timeout=10)
+        subprocess.run(["systemctl", "restart", "unbound"], capture_output=True, timeout=20)
+        notify.send("power", "DNS fallback", "unbound stopped answering - Pi-hole switched to Quad9 and unbound was restarted. Re-run unbound-setup.sh to go recursive again.", priority=4, tags=["warning"], dedupe="dnsguard", dedupe_s=3600)
+        _dns_fail = 0
+        return {"ok": True, "upstream": "fallback"}
+    return {"ok": True, "upstream": "unbound", "healthy": good}
+
+# ---- nobody home -> lights off (config rules.lights_off_when_away) ----
+_away_done = False
+def away_rule(cfg, lan_state, wiz_state):
+    global _away_done
+    r = cfg.get("rules", {})
+    if not r.get("lights_off_when_away") or not lan_state.get("ok"): return
+    if everyone_away(lan_state.get("people", []), int(r.get("away_minutes", 20))):
+        if not _away_done and wiz_state.get("on"):
+            wizctl.all_lights(WIZ, False); _away_done = True
+            notify.send("person_away", "Lights off", f"nobody home for {r.get('away_minutes', 20)} min - turned off {wiz_state['on']} lights", tags=["bulb"])
+    else:
+        _away_done = False
 
 def wiz():
     out, on = [], 0
@@ -217,9 +304,12 @@ def main():
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     while True:
         cfg = hdconfig.load(); apply_cfg(cfg)
-        state = {"cfg": cfg, "ts": int(time.time()), "pihole": pihole(), "wg": wireguard(), "lan": lan(),
+        pub = json.loads(json.dumps(cfg)); pub["notify"]["topic"] = "set" if cfg["notify"].get("topic") else ""   # topic stays off the LAN-visible state
+        state = {"cfg": pub, "ts": int(time.time()), "pihole": pihole(), "wg": wireguard(), "lan": lan(),
                  "wiz": wiz(), "printers": printers(), "sys": system(), "out": outdoors(),
-                 "sites": sites(), "cal": calendar(), "ticker": ticker()}
+                 "sites": sites(), "cal": calendar(), "ticker": ticker(), "speed": speed(), "security": security(),
+                 "power": power(cfg), "notify_log": notify.recent(12), "dns": dns_guard()}
+        away_rule(cfg, state["lan"], state["wiz"])
         tmp = OUT + ".tmp"
         with open(tmp, "w") as f: json.dump(state, f)
         os.replace(tmp, OUT)

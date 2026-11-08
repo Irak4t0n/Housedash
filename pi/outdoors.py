@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 
 OUT = "/var/lib/housedash/outdoors.json"
 UA = {"User-Agent": "housedash (home dashboard, github.com/Irak4t0n/housedash)", "Accept": "application/geo+json,application/json"}
-import hdconfig
+import hdconfig, flight
 CFG = hdconfig.load()
 _grid = {"key": None, "hourly": None, "daily": None}
 
@@ -138,7 +138,15 @@ def main():
         CFG = hdconfig.load(); FAST, SLOW = CFG["intervals"]["internet"], CFG["intervals"]["outdoors"]
         if time.time() - slow_t >= SLOW or wx is None:
             wx, td = weather(), tides(); fi = fishing(wx, td); slow_t = time.time()
-        data = {"ts": int(time.time()), "weather": wx, "tides": td, "fishing": fi, "internet": internet()}
+            try: fb = flight.brief(CFG, wx) if CFG["flight"].get("on", True) else {"ok": False, "off": True}
+            except Exception as e: fb = {"ok": False, "err": str(e)[:60]}
+            try: tr = flight.tropics()
+            except Exception as e: tr = {"ok": False, "err": str(e)[:60]}
+            try: ma = flight.marine(CFG["marine"]["zone"], CFG["marine"]["surf_office"])
+            except Exception as e: ma = {"ok": False, "err": str(e)[:60]}
+            radar = {"img": f"https://radar.weather.gov/ridge/standard/{CFG['radar']['station']}_loop.gif", "station": CFG["radar"]["station"]}
+        data = {"ts": int(time.time()), "weather": wx, "tides": td, "fishing": fi, "internet": internet(),
+                "flight": fb, "tropics": tr, "marine": ma, "radar": radar}
         tmp = OUT + ".tmp"
         with open(tmp, "w") as f: json.dump(data, f)
         os.replace(tmp, OUT)

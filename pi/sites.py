@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 
 OUT = "/var/lib/housedash/sites.json"
 ENV = "/etc/housedash/sites.env"
-import hdconfig
+import hdconfig, notify
 UA = {"User-Agent": "housedash-monitor/1 (+home dashboard)"}
 
 def env():
@@ -22,6 +22,24 @@ def env():
     except FileNotFoundError:
         pass
     return d
+
+_fails = {}
+_rdap = {}   # domain -> (checked_ts, days)
+
+def domain_days(host):
+    """Days until the domain registration expires, via RDAP (rdap.org bootstrap). Checked once a day per domain."""
+    parts = host.split("."); dom = ".".join(parts[-2:]) if len(parts) >= 2 else host
+    c = _rdap.get(dom)
+    if c and time.time() - c[0] < 86400: return c[1]
+    req = urllib.request.Request(f"https://rdap.org/domain/{dom}", headers={**UA, "Accept": "application/rdap+json"})
+    with urllib.request.urlopen(req, timeout=20) as r: d = json.load(r)
+    days = None
+    for ev in d.get("events", []):
+        if ev.get("eventAction") == "expiration":
+            exp = datetime.fromisoformat(ev["eventDate"].replace("Z", "+00:00"))
+            days = int((exp - datetime.now(timezone.utc)).total_seconds() // 86400)
+    _rdap[dom] = (time.time(), days)
+    return days
 
 def cert_days(host):
     ctx = ssl.create_default_context()
@@ -62,10 +80,25 @@ def check(site, creds):
             _last_fp[site["key"]] = fp
     except Exception as e:
         r.update(err=str(e)[:70], ms=int((time.time() - t0) * 1000))
+    # notifications: down after 2 consecutive failures (no flapping), recovery, content change, cert running out
+    k = site["key"]; fails = _fails.get(k, 0)
+    if not r["up"]:
+        _fails[k] = fails + 1
+        if _fails[k] == 2: notify.send("site_down", f"{site['name']} is DOWN", f"{site['url']} · {r.get('err') or r.get('status')}", priority=5, tags=["red_circle"], dedupe="down:" + k, dedupe_s=3600)
+    else:
+        if fails >= 2: notify.send("site_down", f"{site['name']} is back up", f"{r['ms']} ms", tags=["green_circle"], dedupe="up:" + k, dedupe_s=600)
+        _fails[k] = 0
+    if r.get("changed"): notify.send("site_changed", f"{site['name']}: home page changed", "content fingerprint differs from the last check - look at it", priority=4, tags=["eyes"], dedupe="chg:" + k, dedupe_s=21600)
     try:
         r["cert_days"] = cert_days(host)
+        if r["cert_days"] <= 14: notify.send("cert_expiring", f"{site['name']}: TLS cert expires in {r['cert_days']} d", host, priority=4, tags=["lock"], dedupe="cert:" + k, dedupe_s=86400)
     except Exception as e:
         r["cert_err"] = str(e)[:50]
+    try:
+        r["domain_days"] = domain_days(host)
+        if r["domain_days"] is not None and r["domain_days"] <= 30: notify.send("domain_expiring", f"{site['name']}: domain expires in {r['domain_days']} d", host, priority=4, tags=["globe_with_meridians"], dedupe="dom:" + k, dedupe_s=86400)
+    except Exception as e:
+        r["domain_err"] = str(e)[:50]
     if site.get("wp"):
         envk = site.get("env") or site["key"].upper()
         u, p = creds.get(envk + "_WP_USER"), creds.get(envk + "_WP_PASS")

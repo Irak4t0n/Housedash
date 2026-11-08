@@ -26,6 +26,15 @@ a.ti,#wirelist a{color:inherit;text-decoration:none}a.ti:hover span:nth-child(2)
 #qr-img{width:22vw;height:22vw;background:#fff;border-radius:.8vw;padding:.6vw;display:flex;align-items:center;justify-content:center}#qr-img svg{width:100%;height:100%}
 .qr-meta{max-width:38vw}#qr-text{font-size:1.6vw;font-weight:600;line-height:1.25}#qr-src{margin-top:.6vw;font-size:1vw;word-break:break-all}#qr-hint{margin-top:1vw;color:var(--acc);font-size:1vw}
 body.tv #ticker .lbl{cursor:default}body.tv .lbl::after{content:"  ◀ ▶ OK";color:var(--acc);font-weight:500;letter-spacing:0;margin-left:.6vw}
+.ctl{display:inline-flex;gap:.4vw;margin-left:auto}.btn{background:var(--line);color:var(--fg);border:0;border-radius:.4vw;padding:.15vw .6vw;font-size:.8vw;cursor:pointer;letter-spacing:0;text-transform:none}.btn:hover{background:#2a3647}.btn.warm{background:#3a3313;color:#ffd866}
+body.tv .btn,body.tv .ctl,body.tv .bulb{pointer-events:none}body.tv .ctl{display:none}
+.bulb{cursor:pointer}.bulb:active{transform:scale(.95)}
+.ppl{display:flex;flex-wrap:wrap;gap:.5vw;margin-bottom:.5vw}.pp{display:inline-flex;align-items:center;gap:.4vw;padding:.2vw .7vw;border-radius:1vw;background:var(--line);font-size:.95vw}.pp.home{background:#153a26;color:var(--ok)}.pp .sub{font-size:.8vw}
+#storms{flex:none}.radarwrap{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:.6vw;background:#000}.radarwrap img{max-width:100%;max-height:100%;object-fit:contain}
+.verdict{display:inline-block;padding:.1vw .6vw;border-radius:.4vw;font-size:.85vw;font-weight:700;letter-spacing:.08em}.verdict.GO{background:#153a26;color:var(--ok)}.verdict.CAUTION{background:#3a3313;color:var(--warn)}.verdict.NO-GO{background:#3a1515;color:var(--bad)}
+.spark{display:flex;align-items:flex-end;gap:1px;height:1.6vw;margin:.3vw 0}.spark i{flex:1;background:var(--acc);opacity:.7;border-radius:1px;min-width:2px}
+.row .v{flex:none;max-width:62%;overflow:hidden;text-overflow:ellipsis}.row .n{flex:1;min-width:34%}.card h2 .sub,.card h2 .tag,.card h2 .verdict{margin-left:.5vw}.pac{font-size:1.6vw}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:.2vw .8vw;font-size:.85vw}.kv b{font-weight:500;color:var(--fg)}.kv span{color:var(--dim)}
 .ti+.ti::before{content:"";width:.4vw;height:.4vw;border-radius:50%;background:var(--line);margin-right:1.2vw}
 header{display:flex;justify-content:space-between;align-items:baseline}
 header h1{margin:0;font-size:2vw;font-weight:600;letter-spacing:.02em}
@@ -73,19 +82,22 @@ main{display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(
  <section class="card" data-card="tide"><h2><span class="lbltxt">Tide</span> <span class="sub" id="water"></span></h2>
   <div class="list" id="tide"></div></section>
  <section class="card" data-card="fish"><h2><span class="lbltxt">What's biting</span></h2><div class="list" id="fish"></div></section>
- <section class="card tall" data-card="lan"><h2><span class="lbltxt">Devices</span> <span class="sub" id="lan-count"></span></h2><div class="list" id="lan"></div></section>
+ <section class="card tall" data-card="lan"><h2><span class="lbltxt">Devices</span> <span class="sub" id="lan-count"></span></h2><div id="people"></div><div id="wol"></div><div class="list" id="lan"></div></section>
  <section class="card" data-card="pihole"><h2><span class="lbltxt">Pi-hole</span> <span id="ph-err" class="stale"></span></h2>
   <div class="big" id="ph-pct">--%</div><div class="sub"><span id="ph-blocked">-</span> blocked of <span id="ph-total">-</span> today · <span id="ph-clients">-</span> clients</div>
   <div class="bar"><i id="ph-bar" style="width:0"></i></div>
   <div class="list" id="ph-top" style="margin-top:.6vw"></div></section>
  <section class="card" data-card="pr"><h2><span class="lbltxt">Printers</span></h2><div class="list" id="pr"></div></section>
  <section class="card" data-card="wg"><h2><span class="lbltxt">VPN</span> <span id="wg-err" class="stale"></span></h2><div class="list" id="wg"></div></section>
- <section class="card" data-card="wiz"><h2><span class="lbltxt">Lights</span> <span class="sub" id="wiz-count"></span></h2><div class="bulbs" id="wiz"></div></section>
+ <section class="card" data-card="wiz"><h2><span class="lbltxt">Lights</span> <span class="sub" id="wiz-count"></span><span class="ctl"><button class="btn" data-lights="on">all on</button><button class="btn" data-lights="off">all off</button></span></h2><div class="bulbs" id="wiz"></div></section>
  <section class="card" data-card="net"><h2><span class="lbltxt">Internet · Pi</span> <span id="age" class="sub"></span></h2>
   <div class="list" id="net"></div>
   <div class="pac sub" style="margin-top:auto">ᗧ·····ᗣ <span id="pac-n"></span></div></section>
  <section class="card" data-card="sites"><h2><span class="lbltxt">Websites</span> <span class="sub" id="site-sum"></span></h2><div class="list" id="sites"></div></section>
  <section class="card" data-card="cal"><h2><span class="lbltxt">Calendar</span> <span class="sub" id="cal-sum"></span></h2><div class="list" id="cal"></div></section>
+ <section class="card" data-card="flight"><h2><span class="lbltxt">Flight brief</span> <span id="fl-verdict"></span></h2><div class="list" id="flight"></div></section>
+ <section class="card" data-card="radar"><h2><span class="lbltxt">Radar · Tropics</span> <span class="sub" id="rd-sum"></span></h2><div class="radarwrap"><img id="radar-img" alt=""></div><div class="list" id="storms"></div></section>
+ <section class="card" data-card="security"><h2><span class="lbltxt">Security</span> <span class="sub" id="sec-sum"></span></h2><div class="list" id="security"></div></section>
 </main>
 <footer id="ticker"><div class="lbl" id="wirebtn" title="open the full wire">WIRE ▴</div><div class="win"><div id="track"></div></div></footer>
 <div id="qr"><div class="qr-box"><div id="qr-img"></div><div class="qr-meta"><div id="qr-text"></div><div id="qr-src" class="sub"></div><div id="qr-hint" class="sub"></div></div></div></div>
@@ -132,7 +144,7 @@ function render(s){
  else $('ph-err').textContent=p.err;
  const w=s.wg; if(w.ok){$('wg-err').textContent='';$('wg').innerHTML=w.peers.map(x=>`<div class="row"><span class="n"><i class="dot ${x.up?'ok':''}"></i>${x.name}</span><span class="v">${x.up?'connected':x.handshake_age==null?'never':fmtAge(x.handshake_age)+' ago'}</span></div>`).join('');} else $('wg-err').textContent=w.err;
  const l=s.lan; if(l.ok){$('lan-count').textContent=l.active+' active';$('lan').innerHTML=l.hosts.map(h=>`<div class="row"><span class="n"><i class="dot ${h.online?'ok':''}"></i>${h.name}</span><span class="v">${h.online?'online':h.seen==null?'—':fmtAge(h.seen)}</span></div>`).join('');if(l.recent_new&&l.recent_new.length)alertNew(l.recent_new);if(l.returned&&l.returned.length)alertBack(l.returned,l.quiet);}
- const z=s.wiz; if(z.ok){$('wiz-count').textContent=z.on+' on';$('wiz').innerHTML=z.bulbs.map(b=>`<div class="bulb ${b.on?'on':''}" title="${b.ip}">${b.on?b.dim+'%':b.on==null?'?':'off'}</div>`).join('');}
+ const z=s.wiz; if(z.ok){$('wiz-count').textContent=z.on+' on';$('wiz').innerHTML=z.bulbs.map(b=>`<div class="bulb ${b.on?'on':''}" data-ip="${b.ip}" title="${b.name} · ${b.ip}">${b.on?b.dim+'%':b.on==null?'?':'off'}</div>`).join('');}
  const pr=s.printers; if(pr.ok){$('pr').innerHTML=pr.printers.map(x=>{const c=x.count||{};const cnt=`<span class="v">${c.total||0} prints · ${c.week||0} wk · ${c.hours||0} h</span>`;const st=x.state==='free'?'idle':(x.state||'idle');return x.lan?`<div class="row" style="flex-direction:column;align-items:stretch"><div style="display:flex;justify-content:space-between"><span class="n"><i class="dot ${st==='printing'?'ok':st==='error'?'bad':''}"></i>${x.name} · ${st}</span><span class="v">${x.nozzle}° / ${x.bed}°${x.chamber?' / '+x.chamber+'°':''}</span></div><div style="display:flex;justify-content:space-between"><span class="sub">${st==='printing'||st==='paused'?[x.file,x.progress!=null?x.progress+'%':'',x.layer?'layer '+x.layer+(x.layers?'/'+x.layers:''):'',x.remaining?fmtUp(x.remaining)+' left':x.elapsed?fmtUp(x.elapsed):''].filter(Boolean).join(' · '):(x.err?x.err:'')}</span>${cnt}</div>${st==='printing'||st==='paused'?`<div class="bar"><i style="width:${x.progress}%"></i></div>`:''}</div>`:`<div class="row"><span class="n"><i class="dot"></i>${x.name} <span class="sub">LAN mode off</span></span>${cnt}</div>`}).join('');}
  const y=s.sys, o=s.out||{}, inet=o.internet||{};
  const netRows=[];
@@ -159,11 +171,44 @@ function render(s){
    const down=si.sites.filter(x=>!x.up).length; $('site-sum').textContent=down?down+' DOWN':'all up';
    $('sites').innerHTML=si.sites.map(x=>{
      const cls=!x.up?'bad':(x.changed||(x.cert_days!=null&&x.cert_days<14))?'warn':'ok';
-     const v=!x.up?('down'+(x.status?' · '+x.status:'')):[x.ms+' ms',x.cert_days!=null?'cert '+x.cert_days+'d':null].filter(Boolean).join(' · ');
+     const v=!x.up?('down'+(x.status?' · '+x.status:'')):[x.ms+' ms',x.cert_days!=null?'cert '+x.cert_days+'d':null,x.domain_days!=null&&x.domain_days<60?'domain '+x.domain_days+'d':null].filter(Boolean).join(' · ');
      const extra=[x.changed?'⚠ home page changed':null,x.leads!=null?x.leads+' leads':null,x.comments_pending?x.comments_pending+' comments to moderate':null,x.wp_err&&x.leads==null?(x.wp_err.includes('app password')?'leads: set up at '+location.hostname+':8089':x.wp_err):null].filter(Boolean).join(' · ');
      return `<div class="row" style="flex-direction:column;align-items:stretch"><div style="display:flex;justify-content:space-between"><span class="n"><i class="dot ${cls}"></i>${x.name}</span><span class="v">${v}</span></div>${extra?`<div class="sub" style="margin-top:0">${extra}</div>`:''}</div>`}).join('');
  } else if(si&&si.err){$('sites').innerHTML=`<div class="sub">${si.err}</div>`}
  const tk=s.ticker; if(tk&&tk.ok&&tk.items&&tk.items.length) setTicker(tk.items);
+ // people + wake buttons (Devices card)
+ if(l&&l.ok){const pp=l.people||[]; $('people').innerHTML=pp.length?`<div class="ppl">${pp.map(p=>`<span class="pp ${p.home?'home':''}"><i class="dot ${p.home?'ok':''}" style="margin:0"></i>${p.name}<span class="sub">${p.home?'home':'away'} ${fmtAge(Math.floor(Date.now()/1000)-p.since)}</span></span>`).join('')}</div>`:'';}
+ const wol=(CFG&&CFG.wol)||[]; $('wol').innerHTML=wol.length?`<div class="ppl">${wol.map(w=>{const h=(l.hosts||[]).find(x=>x.ip===w.ip);return `<button class="btn ${h&&h.online?'':'warm'}" data-wake="${w.name}">⏻ ${w.name}${h&&h.online?' · on':' · wake'}</button>`}).join('')}</div>`:'';
+ // power + speed lines on the Internet card
+ const pw=s.power; if(pw&&pw.ok){netRows.push(`<div class="row"><span class="n"><i class="dot ${pw.plugged?'ok':'bad'}"></i>${pw.plugged?'Mains power':'ON BATTERY'}</span><span class="v">${pw.pct}%${pw.charging?' · charging':''}${!pw.plugged?' · '+fmtAge(now-pw.since):''}</span></div>`); $('net').innerHTML=netRows.join('');}
+ const sp=s.speed; if(sp&&sp.last&&sp.last.down!=null){const mx=Math.max(...sp.spark,1);$('net').innerHTML+=`<div class="row" style="flex-direction:column;align-items:stretch"><div style="display:flex;justify-content:space-between"><span class="n">Speed test <span class="sub" style="font-size:.8vw">(from the Pi)</span></span><span class="v">↓ ${sp.last.down} · ↑ ${sp.last.up} Mbps · ${sp.last.ping} ms</span></div><div class="spark">${sp.spark.map(v=>`<i style="height:${Math.max(6,Math.round(v/mx*100))}%" title="${v}"></i>`).join('')}</div></div>`;}
+ // marine lines on the Tide card
+ const ma=o.marine; if(ma&&ma.ok&&td&&td.ok){const rip=ma.rip?`<div class="row"><span class="n"><i class="dot ${/high/i.test(ma.rip)?'bad':/mod/i.test(ma.rip)?'warn':'ok'}"></i>Rip current risk</span><span class="v">${ma.rip}${ma.surf?' · surf '+ma.surf:''}</span></div>`:'';
+   const mp=(ma.periods||[])[0]; $('tide').innerHTML+=rip+(mp?`<div class="sub" style="margin-top:.3vw"><b style="color:var(--fg);font-weight:500">${mp.name}:</b> ${mp.text}</div>`:'');}
+ // flight brief
+ const fb=o.flight; if(fb&&fb.ok){$('fl-verdict').innerHTML=`<span class="verdict ${fb.verdict}">${fb.verdict}</span>`;
+   const a=fb.aloft||{}; const la=fb.laanc||{};
+   $('flight').innerHTML=`<div class="kv"><span>Airspace</span><b>Class ${fb.class||'?'}${la.grid?` · LAANC ${la.ceiling} ft${la.airport?' ('+la.airport+')':''}`:' · no UASFM grid, 400 ft'}</b>
+     <span>Wind 400 ft</span><b>${a.w120!=null?a.w120+' mph, gusts '+a.gust+', 6 h max '+a.w120_max6h:'—'}</b>
+     <span>Kp</span><b>${fb.kp!=null?fb.kp.toFixed(1)+(fb.kp>=5?' storm':fb.kp>=4?' active':' quiet'):'—'}</b>
+     <span>Sun</span><b>${fb.sun.sunrise} → ${fb.sun.sunset}</b><span>Golden hour</span><b>${fb.golden.am} · ${fb.golden.pm}</b>
+     <span>TFRs ≤ ${(CFG&&CFG.flight&&CFG.flight.tfr_radius_nm)||40} nm</span><b>${fb.tfrs&&fb.tfrs.length?fb.tfrs.length+' active':'none'}</b></div>`
+     +(fb.nogo&&fb.nogo.length?`<div class="tip" style="color:var(--bad)">${fb.nogo.join(' · ')}</div>`:'<div class="tip">clear to fly</div>')
+     +(fb.tfrs||[]).slice(0,2).map(t=>`<div class="sub" style="margin-top:.2vw">⚠ ${t.nm!=null?t.nm+' nm · ':''}${t.type}: ${t.desc}</div>`).join('');
+ } else if(fb&&fb.err){$('flight').innerHTML=`<div class="stale">${fb.err}</div>`}
+ // radar + tropics
+ const rd=o.radar; if(rd&&rd.img){const im=$('radar-img'); const src=rd.img+'?'+Math.floor(Date.now()/300000); if(im.dataset.src!==src){im.src=src;im.dataset.src=src;}}
+ const tr=o.tropics; if(tr&&tr.ok){const at=tr.atlantic||[]; $('rd-sum').textContent=at.length?at.length+' Atlantic system'+(at.length>1?'s':''):(tr.storms.length?tr.storms.length+' active (none Atlantic)':'tropics quiet');
+   $('storms').innerHTML=at.slice(0,2).map(x=>`<div class="row"><span class="n"><i class="dot ${x.class==='HU'||x.class==='MH'?'bad':'warn'}"></i>${x.class} ${x.name}</span><span class="v">${x.kt} kt · ${x.mb} mb · ${x.move}</span></div>`).join('');}
+ // security
+ const se=s.security; if(se&&(se.canary||se.audit)){const hits=(se.canary||[]).slice(-50); const recent=hits.filter(h=>now-h.ts<86400); const au=se.audit||{}; const d=au.diff||{}; const ch=(d.new_hosts||[]).length+(d.new_ports||[]).length;
+   $('sec-sum').textContent=recent.length?recent.length+' honeypot hit'+(recent.length>1?'s':'')+' today':'quiet';
+   const rows=[`<div class="row"><span class="n"><i class="dot ${recent.length?'bad':'ok'}"></i>Honeypot ${(se.canary_ports||[]).join(' ')}</span><span class="v">${hits.length?'last '+fmtAge(now-hits[hits.length-1].ts)+' ago':'no hits ever'}</span></div>`];
+   hits.slice(-3).reverse().forEach(h=>rows.push(`<div class="row"><span class="n">${h.src} → ${h.svc}</span><span class="v">${fmtAge(now-h.ts)}${h.data?' · '+h.data.slice(0,18):''}</span></div>`));
+   if(au.ts) rows.push(`<div class="row"><span class="n"><i class="dot ${ch?'warn':'ok'}"></i>LAN audit · ${au.hosts||0} hosts</span><span class="v">${au.first?'baseline':ch?ch+' change'+(ch>1?'s':''):'no changes'} · ${fmtAge(now-au.ts)}</span></div>`);
+   (d.new_hosts||[]).slice(0,2).forEach(x=>rows.push(`<div class="sub">new host ${x.ip} ${x.vendor||''} ports ${(x.ports||[]).slice(0,5).join(',')}</div>`)); (d.new_ports||[]).slice(0,2).forEach(x=>rows.push(`<div class="sub">${x.ip} opened ${x.port}</div>`));
+   if(au.err) rows.push(`<div class="stale">audit: ${au.err}</div>`);
+   $('security').innerHTML=rows.join('');}
  const ca=s.cal; if(ca&&ca.ok){
    const today=localDate();
    const ev=ca.events||[]; const td=ev.filter(e=>e.start.slice(0,10)===today), tm=ev.filter(e=>e.start.slice(0,10)!==today);
@@ -263,6 +308,15 @@ document.addEventListener('keydown',e=>{   // same controls on a PC keyboard / T
 });
 $('qr').addEventListener('click',closeQr);
 if(TV) document.body.classList.add('tv');
+// ---- controls (phone / PC view): lights, wake-on-LAN. They call the settings server's /api on :8089.
+const API=()=>location.protocol+'//'+location.hostname+':'+((CFG&&CFG.network&&CFG.network.setup_port)||8089);
+async function act(path){try{const r=await fetch(API()+path,{method:'POST'});const j=await r.json();if(!j.ok)console.warn(j);setTimeout(tick,1200);return j;}catch(e){console.warn(e)}}
+document.addEventListener('click',e=>{
+ if(TV) return;
+ const b=e.target.closest('.bulb[data-ip]'); if(b){b.style.opacity=.5;act('/api/light?ip='+encodeURIComponent(b.dataset.ip)+'&action=toggle');return;}
+ const al=e.target.closest('[data-lights]'); if(al){act('/api/lights?action='+al.dataset.lights);return;}
+ const w=e.target.closest('[data-wake]'); if(w){w.textContent='⏻ sending…';act('/api/wake?name='+encodeURIComponent(w.dataset.wake));return;}
+});
 async function tick(){try{const r=await fetch('state.json?'+Date.now(),{cache:'no-store'});render(await r.json());}catch(e){$('age').textContent='no data';}}
 clock();setInterval(clock,1000);tick();pollTimer=setInterval(tick,POLL);
 </script></body></html>

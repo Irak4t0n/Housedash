@@ -2,9 +2,9 @@
 """House dashboard setup — http://<pi>:8089 (LAN + VPN). Edits /etc/housedash/config.json
 (everything the dashboard shows and how often) plus the two write-only secrets (calendar feeds, WordPress
 app password). Runs as root so it can write /etc/housedash and restart collectors. Secrets never echo back."""
-import base64, copy, html, json, os, subprocess, urllib.parse, urllib.request
+import base64, copy, html, json, os, re, secrets, socket, subprocess, urllib.parse, urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-import hdconfig
+import hdconfig, notify, wizctl
 
 CAL = "/etc/housedash/calendars.txt"
 ENV = "/etc/housedash/sites.env"
@@ -25,7 +25,7 @@ nav{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 4px}nav a{color:#4cc2ff;te
 textarea{width:100%;height:320px;font:13px ui-monospace,monospace}
 ol.help{padding-left:20px;font-size:13px;color:#8b98a8;line-height:1.5;margin:6px 0}"""
 
-SECTIONS = ["general", "cards", "alerts", "wire", "weather", "printers", "lights", "hosts", "vpn", "sites", "calendars", "wordpress", "json"]
+SECTIONS = ["general", "cards", "notify", "alerts", "people", "wol", "wire", "weather", "flight", "printers", "lights", "hosts", "vpn", "sites", "security", "calendars", "wordpress", "json"]
 
 def restart(*units): subprocess.run(["systemctl", "restart", *units])
 
@@ -75,6 +75,40 @@ def section_html(c, sec):
     if sec == "cards":
         rows = "".join(f"<tr><td class=c>{chk(f'on{i}', x.get('on', True))}</td><td>{inp(f'label{i}', x.get('label', ''))}</td><td class=n>{inp(f'pos{i}', i + 1, 'number')}</td><td class=c>{chk(f'tall{i}', x.get('tall'))}</td><td class=dim>{x['id']}</td></tr>" for i, x in enumerate(c["cards"]))
         return f"<p class=dim>Tick to show, type a position to reorder, 'tall' spans two rows. {c['grid']['columns']}×{c['grid']['rows']} grid = {c['grid']['columns'] * c['grid']['rows']} slots (tall cards use two).</p><table><tr><th>show</th><th>label</th><th>pos</th><th>tall</th><th>id</th></tr>{rows}</table><button>Save</button>"
+    if sec == "notify":
+        n = c["notify"]; ev = n["events"]
+        labels = {"new_device": "new device on the network", "device_back": "known device back after hours away", "person_home": "someone comes home", "person_away": "someone leaves / lights-off rule fired",
+                  "print_done": "print finished", "print_error": "printer error or paused", "site_down": "website down / back up", "site_changed": "website home page changed",
+                  "cert_expiring": "TLS cert < 14 days", "domain_expiring": "domain registration < 30 days", "power": "mains power lost / restored (PiSugar)", "canary": "honeypot touched",
+                  "audit": "nightly port scan found changes", "storm": "new tropical storm / hurricane in the Gulf", "test": "test button"}
+        boxes = "".join(f"<p style='margin:4px 0'>{chk('ev_' + k, ev.get(k, True))} {E(v)}</p>" for k, v in labels.items())
+        sub = f"{n['server'].rstrip('/')}/{n['topic']}"
+        return (f"<p>{chk('on', n['on'])} send push notifications &nbsp;&nbsp; {chk('quiet', n['quiet_respect'])} deliver silently during quiet hours</p>"
+                f"<div class=row>{field('ntfy server', inp('server', n['server']))}{field('Topic (keep it private - anyone with it can post to your phone)', inp('topic', n['topic']))}</div>"
+                f"<ol class=help><li>Install the <b>ntfy</b> app (Android / iOS) or open <a style=color:#4cc2ff href='{E(sub)}' target=_blank>{E(sub)}</a> in a browser.</li><li>Subscribe to topic <b>{E(n['topic'])}</b> on server {E(n['server'])}. That's it - phones on any network get them.</li></ol>"
+                f"<button formaction=/api/notify/test formmethod=post>Send a test</button> <button>Save</button><h2>Events</h2>{boxes}<button>Save</button>")
+    if sec == "people":
+        rows = "".join(f"<tr><td class=k>{inp(f'k{i}', p['name'])}</td><td>{inp(f'v{i}', p['ip'])}</td></tr>" for i, p in enumerate(c["people"]))
+        r = c["rules"]
+        return (f"<p class=dim>Phones, by IP (give them DHCP reservations in your router). Home = Pi-hole saw a DNS query from it in the last N minutes. Clear a name to remove.</p>"
+                f"<table><tr><th>name</th><th>phone IP</th></tr>{rows}<tr><td class=k>{inp('newk', '')}</td><td>{inp('newv', '')}</td></tr></table>"
+                f"<div class=row>{field('Away after (minutes without DNS)', inp('away', r['away_minutes'], 'number'))}</div>"
+                f"<p>{chk('lightsoff', r['lights_off_when_away'])} turn all lights off when everyone has been away that long</p><button>Save</button>")
+    if sec == "wol":
+        rows = "".join(f"<tr><td class=k>{inp(f'name{i}', w['name'])}</td><td class=k>{inp(f'mac{i}', w['mac'])}</td><td>{inp(f'ip{i}', w.get('ip', ''))}</td><td class=c><input type=checkbox name='del{i}'></td></tr>" for i, w in enumerate(c["wol"]))
+        return (f"<p class=dim>Wake-on-LAN targets: a <b>Wake</b> button appears on the dashboard's phone/PC view and at <code>POST /api/wake?name=…</code> on this port. The PC needs 'Wake on magic packet' enabled on its NIC and in BIOS. Last column removes.</p>"
+                f"<table><tr><th>name</th><th>MAC</th><th>IP (to show if it's up)</th><th>✕</th></tr>{rows}<tr><td class=k>{inp('name_new', '')}</td><td class=k>{inp('mac_new', '')}</td><td>{inp('ip_new', '')}</td><td></td></tr></table><button>Save</button>")
+    if sec == "flight":
+        f = c["flight"]; rd = c["radar"]; m = c["marine"]; sp = c["speedtest"]; pw = c["power"]
+        return (f"<p>{chk('on', f['on'])} Flight brief card (LAANC ceiling at your lat/lon, TFRs nearby, sunrise/sunset/golden hour, Kp, wind at 400 ft, go/no-go)</p>"
+                f"<div class=row>{field('No-go above wind (mph, at 400 ft)', inp('wind', f['max_wind_mph'], 'number'))}{field('No-go at Kp ≥', inp('kp', f['max_kp'], 'number'))}{field('TFR search radius (nm)', inp('rad', f['tfr_radius_nm'], 'number'))}</div>"
+                f"<h2>Radar · tropics · marine</h2><div class=row>{field('NWS radar site (radar.weather.gov)', inp('station', rd['station']))}{field('NWS marine zone (e.g. GMZ650)', inp('zone', m['zone']))}{field('Surf-zone forecast office (e.g. MOB)', inp('surf', m['surf_office']))}</div>"
+                f"<h2>Pi extras</h2><p>{chk('power', pw['on'])} PiSugar battery / mains watch &nbsp;&nbsp; {chk('speed', sp['on'])} hourly speed test from the Pi</p><div class=row>{field('Speed test every (minutes)', inp('speedmin', sp['interval_min'], 'number'))}</div><button>Save</button>")
+    if sec == "security":
+        s = c["security"]
+        return (f"<p class=dim><b>Honeypot:</b> the Pi listens on ports nothing legitimate should ever touch; any connection is logged on the Security card and pushed to your phone. <b>Nightly audit:</b> nmap of the LAN; new open ports / new hosts show up as a diff.</p>"
+                f"<div class=row>{field('Honeypot ports (comma list)', inp('ports', ','.join(str(p) for p in s['canary_ports'])))}{field('Audit hour (0-23)', inp('hour', s['audit_hour'], 'number'))}{field('Audit range (blank = the Pi subnet)', inp('range', s['audit_range']))}</div>"
+                f"<p class=dim>Changing ports restarts housedash-canary.</p><button>Save</button>")
     if sec == "alerts":
         a = c["alerts"]
         return (f"<div class=row>{field('Quiet hours start (0-23)', inp('qs', a['quiet_start'], 'number'))}{field('Quiet hours end', inp('qe', a['quiet_end'], 'number'))}</div>"
@@ -152,6 +186,31 @@ def apply_cfg(sec, d, c):
         for i, x in enumerate(c["cards"]):
             cards.append({**x, "on": on(d, f"on{i}"), "label": g(d, f"label{i}", x.get("label", "")), "tall": on(d, f"tall{i}"), "_pos": num(d, f"pos{i}", i + 1, float)})
         cards.sort(key=lambda x: x["_pos"]); [x.pop("_pos") for x in cards]; c["cards"] = cards
+    elif sec == "notify":
+        n = c["notify"]; n["on"] = on(d, "on"); n["quiet_respect"] = on(d, "quiet")
+        n["server"] = g(d, "server", n["server"]).rstrip("/") or "https://ntfy.sh"; n["topic"] = re.sub(r"[^A-Za-z0-9_-]", "", g(d, "topic", n["topic"]))[:64] or n["topic"]
+        n["events"] = {k[3:]: True for k in d if k.startswith("ev_")} | {k: False for k in n["events"] if ("ev_" + k) not in d}
+    elif sec == "people":
+        ppl = []
+        for i in range(len(c["people"])):
+            if g(d, f"k{i}"): ppl.append({"name": g(d, f"k{i}"), "ip": g(d, f"v{i}")})
+        if g(d, "newk"): ppl.append({"name": g(d, "newk"), "ip": g(d, "newv")})
+        c["people"] = ppl; c["rules"]["away_minutes"] = num(d, "away", c["rules"]["away_minutes"], int); c["rules"]["lights_off_when_away"] = on(d, "lightsoff")
+    elif sec == "wol":
+        w = []
+        for i, x in enumerate(c["wol"]):
+            if on(d, f"del{i}") or not g(d, f"mac{i}"): continue
+            w.append({"name": g(d, f"name{i}") or x["name"], "mac": g(d, f"mac{i}").lower(), "ip": g(d, f"ip{i}")})
+        if g(d, "mac_new"): w.append({"name": g(d, "name_new") or "PC", "mac": g(d, "mac_new").lower(), "ip": g(d, "ip_new")})
+        c["wol"] = w
+    elif sec == "flight":
+        f = c["flight"]; f["on"] = on(d, "on"); f["max_wind_mph"] = num(d, "wind", f["max_wind_mph"], int); f["max_kp"] = num(d, "kp", f["max_kp"], int); f["tfr_radius_nm"] = num(d, "rad", f["tfr_radius_nm"], int)
+        c["radar"]["station"] = g(d, "station", c["radar"]["station"]).upper(); c["marine"]["zone"] = g(d, "zone", c["marine"]["zone"]).upper(); c["marine"]["surf_office"] = g(d, "surf", c["marine"]["surf_office"]).upper()
+        c["power"]["on"] = on(d, "power"); c["speedtest"]["on"] = on(d, "speed"); c["speedtest"]["interval_min"] = max(10, num(d, "speedmin", c["speedtest"]["interval_min"], int))
+    elif sec == "security":
+        s = c["security"]
+        s["canary_ports"] = sorted({int(p) for p in re.findall(r"\d+", g(d, "ports"))} - {22, 53, 80, 443, 8088, 8089}) or s["canary_ports"]
+        s["audit_hour"] = num(d, "hour", s["audit_hour"], int) % 24; s["audit_range"] = g(d, "range")
     elif sec == "alerts":
         a = c["alerts"]
         a["quiet_start"] = num(d, "qs", a["quiet_start"], int) % 24; a["quiet_end"] = num(d, "qe", a["quiet_end"], int) % 24
@@ -195,21 +254,70 @@ def apply_cfg(sec, d, c):
         if not isinstance(new, dict) or "cards" not in new: raise ValueError("that doesn't look like a dashboard config")
         c.clear(); c.update(new)
 
+def wake(mac):
+    """Send a Wake-on-LAN magic packet to the broadcast address."""
+    m = bytes.fromhex(re.sub(r"[^0-9a-fA-F]", "", mac))
+    if len(m) != 6: raise ValueError("bad MAC")
+    pkt = b"\xff" * 6 + m * 16
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    brds = {"255.255.255.255"}
+    try: brds |= set(re.findall(r"brd (\d+\.\d+\.\d+\.\d+)", subprocess.run(["ip", "-4", "-o", "addr"], capture_output=True, text=True).stdout))
+    except Exception: pass
+    for addr in brds:
+        for port in (9, 7):
+            try: s.sendto(pkt, (addr, port))
+            except Exception: pass
+    s.close()
+
+def api(path, q, c):
+    """Actions for the dashboard's phone/PC view. Returns a dict."""
+    if path == "/api/wake":
+        name = q.get("name"); t = next((w for w in c["wol"] if w["name"] == name), None)
+        if not t: raise ValueError("unknown wake target")
+        wake(t["mac"]); return {"ok": True, "woke": name}
+    if path == "/api/light":
+        ip = q.get("ip");
+        if ip not in c["lights"]: raise ValueError("unknown light")
+        act = q.get("action", "toggle"); dim = q.get("dim")
+        if act == "toggle": r = wizctl.toggle(ip)
+        else: r = wizctl.set_state(ip, on=(act == "on"), dim=int(dim) if dim else None)
+        return {"ok": "error" not in r, "ip": ip, "result": r}
+    if path == "/api/lights":
+        act = q.get("action", "off"); dim = q.get("dim")
+        wizctl.all_lights(c["lights"], act == "on", int(dim) if dim else None); return {"ok": True, "all": act}
+    if path == "/api/notify/test":
+        ok = notify.send("test", "House dashboard", "test notification - it works", tags=["tada"]); return {"ok": ok, "sent": ok}
+    raise ValueError("unknown api")
+
 class H(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
-    def send(self, body, code=200):
-        b = body.encode(); self.send_response(code); self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.send_header("Cache-Control", "no-store")
+    def send(self, body, code=200, ctype="text/html; charset=utf-8"):
+        b = body.encode(); self.send_response(code); self.send_header("Content-Type", ctype)
+        self.send_header("Cache-Control", "no-store"); self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
+    def do_OPTIONS(self): self.send("", 204)
     def do_GET(self):
         if self.path.split("?")[0] != "/": return self.send("", 404)
+        c = hdconfig.load()
+        if not c["notify"].get("topic"):   # first visit: mint a private topic
+            o = copy.deepcopy(c); o["notify"]["topic"] = "housedash-" + secrets.token_urlsafe(9).replace("-", "").replace("_", "")[:12]; hdconfig.save(o)
         self.send(page())
     def do_POST(self):
-        n = int(self.headers.get("Content-Length", 0)); d = urllib.parse.parse_qs(self.rfile.read(n).decode(), keep_blank_values=True)
+        n = int(self.headers.get("Content-Length", 0)); raw = self.rfile.read(n).decode()
+        d = urllib.parse.parse_qs(raw, keep_blank_values=True)
+        p = urllib.parse.urlparse(self.path); q = {k: v[0] for k, v in urllib.parse.parse_qs(p.query).items()}
+        if p.path.startswith("/api/"):
+            try: res = api(p.path, q or {k: v[0] for k, v in d.items()}, hdconfig.load()); code = 200
+            except Exception as e: res = {"ok": False, "err": str(e)[:120]}; code = 400
+            if "text/html" in (self.headers.get("Accept") or "") and p.path == "/api/notify/test":   # the settings page's button
+                return self.send(page(f"<div class='msg {'ok' if res.get('ok') else 'bad'}'>{'✓ test notification sent' if res.get('ok') else '✗ not sent: ' + E(str(res.get('err') or 'notifications off or no topic'))}</div>"))
+            return self.send(json.dumps(res), code, "application/json")
         try:
             if self.path.startswith("/cfg/"):
                 sec = self.path[5:]; c = copy.deepcopy(hdconfig.load()); apply_cfg(sec, d, c); hdconfig.save(c)
-                if sec == "printers" or sec == "json": restart("housedash-printers")
+                if sec in ("printers", "json"): restart("housedash-printers")
+                if sec in ("security", "json"): restart("housedash-canary")
                 msg = f"<div class='msg ok'>✓ {E(sec)} saved — the TVs pick it up within ~10 s.</div>"
             elif self.path == "/cal":
                 name, url, color = g(d, "name").replace("|", "/") or "Calendar", g(d, "url"), g(d, "color") or "#4cc2ff"

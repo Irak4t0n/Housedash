@@ -7,7 +7,7 @@ import aiohttp
 from anycubic_lan import AnycubicLanClient, handshake, AnycubicLanError
 
 OUT = "/var/lib/housedash/printers.json"
-import hdconfig
+import hdconfig, notify
 PRINTERS = hdconfig.load()["printers"]   # restart housedash-printers after changing printers in config
 state = {}   # ip -> dict for the page
 
@@ -34,6 +34,12 @@ async def watch(ip, name):
                     if js in ("printing", "paused", "preheating", "levelling", "downloading", "checking", "slicing"): ps = js
                     elif js == "complete": ps = "finished"
                     elif js == "cancelled": ps = "cancelled"
+                prev = (state.get(ip) or {}).get("state")
+                if prev and prev != ps:
+                    fn = (job.filename if job else None) or ""
+                    if ps == "finished": notify.send("print_done", f"{name}: print finished", fn, tags=["white_check_mark"], dedupe=f"done:{ip}:{fn}", dedupe_s=600)
+                    elif ps == "error" or "error" in ps: notify.send("print_error", f"{name}: printer error", f"{fn} ({ps})", priority=4, tags=["warning"], dedupe=f"err:{ip}", dedupe_s=1800)
+                    elif ps == "paused" and prev == "printing": notify.send("print_error", f"{name}: paused", fn, dedupe=f"pause:{ip}", dedupe_s=1800)
                 state[ip] = {"name": name, "ip": ip, "lan": True, "model": st.model, "firmware": st.firmware_version,
                              "state": ps, "nozzle": t.nozzle, "nozzle_target": t.nozzle_target, "bed": t.bed, "bed_target": t.bed_target,
                              "chamber": t.chamber,

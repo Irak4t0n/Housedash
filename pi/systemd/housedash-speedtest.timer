@@ -1,0 +1,10 @@
+[Unit]
+Description=House dashboard: speed test every 10 min (the script applies the configured interval)
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=10min
+RandomizedDelaySec=60
+
+[Install]
+WantedBy=timers.target

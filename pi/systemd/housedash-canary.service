@@ -1,0 +1,12 @@
+[Unit]
+Description=House dashboard: LAN honeypot (canary ports)
+After=network-online.target
+
+[Service]
+ExecStart=/usr/bin/python3 /opt/housedash/canary.py
+Restart=always
+RestartSec=10
+Nice=10
+
+[Install]
+WantedBy=multi-user.target
