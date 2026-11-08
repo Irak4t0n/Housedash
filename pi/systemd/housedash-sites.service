@@ -1,0 +1,13 @@
+[Unit]
+Description=House dashboard: business websites
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/python3 /opt/housedash/sites.py
+Restart=always
+RestartSec=30
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

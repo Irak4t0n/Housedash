@@ -1,0 +1,13 @@
+[Unit]
+Description=House dashboard collector
+After=network-online.target pihole-FTL.service wg-quick@wghome.service
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/python3 /opt/housedash/collect.py
+Restart=always
+RestartSec=10
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

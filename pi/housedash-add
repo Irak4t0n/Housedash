@@ -1,0 +1,23 @@
+#!/bin/bash
+# housedash-add - command-line alternative to the settings page for the two secrets.
+#   housedash-add wp  SITEKEY USER 'xxxx xxxx xxxx xxxx xxxx xxxx'   WordPress application password for a site in config (its "key")
+#   housedash-add cal "Name" https://...basic.ics [#color]           a calendar's secret iCal address -> calendar card
+set -e
+[ "$(id -u)" = 0 ] || exec sudo "$0" "$@"
+mkdir -p /etc/housedash; chmod 755 /etc/housedash
+case "$1" in
+  wp)
+    [ $# -ge 4 ] || { echo "usage: housedash-add wp SITEKEY USER 'APP PASSWORD'"; exit 1; }
+    K=$(echo "$2" | tr 'a-z' 'A-Z'); PW=$(echo "$4" | tr -d ' ')
+    { [ -f /etc/housedash/sites.env ] && grep -v "^${K}_WP_" /etc/housedash/sites.env; printf '%s_WP_USER=%s\n%s_WP_PASS=%s\n' "$K" "$3" "$K" "$PW"; } > /etc/housedash/sites.env.new
+    mv /etc/housedash/sites.env.new /etc/housedash/sites.env; chmod 600 /etc/housedash/sites.env
+    systemctl restart housedash-sites
+    sleep 25; python3 -c "import json,sys;s=[x for x in json.load(open('/var/lib/housedash/sites.json'))['sites'] if x['key']=='$2'];print(s and ('leads:',s[0].get('leads'),'comments pending:',s[0].get('comments_pending'),'err:',s[0].get('wp_err')) or 'no site with key $2 in config')" ;;
+  cal)
+    [ $# -ge 3 ] || { echo "usage: housedash-add cal \"Name\" ICS_URL [#color]"; exit 1; }
+    printf '%s | %s | %s\n' "$2" "${4:-}" "$3" >> /etc/housedash/calendars.txt
+    chmod 600 /etc/housedash/calendars.txt
+    systemctl restart housedash-calendar
+    sleep 8; python3 -c "import json;d=json.load(open('/var/lib/housedash/calendar.json'));print(len(d.get('events',[])),'events today/tomorrow;',d.get('errs') or 'no errors')" ;;
+  *) sed -n '2,4p' "$0" ;;
+esac

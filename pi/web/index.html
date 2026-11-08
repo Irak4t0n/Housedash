@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>House</title>
+<style>
+:root{--bg:#0b0f14;--card:#121923;--line:#1f2a38;--fg:#e6edf3;--dim:#8b98a8;--ok:#3ddc84;--warn:#ffb020;--bad:#ff5c5c;--acc:#4cc2ff}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:18px/1.35 system-ui,Segoe UI,Roboto,sans-serif}
+body{padding:1.8vh 2vw 1.2vh;display:grid;grid-template-rows:auto 1fr auto;gap:1.2vh}
+#ticker{height:3.4vw;background:var(--card);border:1px solid var(--line);border-radius:.8vw;overflow:hidden;position:relative;display:flex;align-items:center}
+#ticker .lbl{flex:none;height:100%;display:flex;align-items:center;padding:0 1.1vw;background:#1a2332;color:var(--dim);font-size:.85vw;font-weight:700;letter-spacing:.14em;border-right:1px solid var(--line);z-index:2}
+#ticker .win{flex:1;overflow:hidden;height:100%;position:relative}
+#track{position:absolute;left:0;top:0;height:100%;display:flex;align-items:center;white-space:nowrap;will-change:transform}
+.ti{display:inline-flex;align-items:center;gap:.6vw;padding:0 1.6vw;font-size:1.15vw;color:var(--fg)}
+.ti .tg{font-size:.75vw;font-weight:700;letter-spacing:.1em;padding:.15vw .5vw;border-radius:.35vw;background:var(--line);color:var(--dim)}
+.ti .src{color:var(--dim);font-size:.9vw}
+.tg.UFC{background:#3a1515;color:#ff8a8a}.tg.HACK{background:#153a26;color:var(--ok)}.tg.ESPORTS{background:#2a1a3a;color:#d7a6ff}.tg.GAMING{background:#1a2a3a;color:var(--acc)}.tg.HN{background:#3a2a13;color:var(--warn)}.tg.DRONE{background:#13303a;color:#7fe0ff}
+a.ti,#wirelist a{color:inherit;text-decoration:none}a.ti:hover span:nth-child(2){text-decoration:underline;text-decoration-color:var(--acc)}
+#ticker .lbl{cursor:pointer;user-select:none}
+#wirepanel{position:fixed;left:2vw;right:2vw;bottom:5.2vw;max-height:70vh;overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:1vw;padding:1vw 1.4vw;display:none;z-index:8;box-shadow:0 1vw 3vw #000c}
+#wirepanel.show{display:block}
+.wp-head{display:flex;justify-content:space-between;align-items:center;color:var(--dim);font-size:.9vw;letter-spacing:.12em;margin-bottom:.6vw}
+.wp-head button{background:var(--line);color:var(--fg);border:0;border-radius:.4vw;padding:.3vw .9vw;font-size:.9vw;cursor:pointer}
+.wl{padding:.45vw 0;border-bottom:1px solid var(--line);font-size:1.05vw}.wl:last-child{border-bottom:0}.wl a,.wl>span{display:flex;gap:.7vw;align-items:center}.wl .src{color:var(--dim);font-size:.85vw;margin-left:auto;white-space:nowrap}.wl a:hover span:nth-child(2){text-decoration:underline;text-decoration-color:var(--acc)}
+.ti.sel{background:#1a2332;border-radius:.6vw;outline:2px solid var(--acc);outline-offset:-2px}
+#qr{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center;z-index:20}#qr.show{display:flex}
+.qr-box{background:var(--card);border:1px solid var(--line);border-radius:1.2vw;padding:1.6vw;display:flex;gap:1.6vw;align-items:center;max-width:70vw;box-shadow:0 1vw 4vw #000}
+#qr-img{width:22vw;height:22vw;background:#fff;border-radius:.8vw;padding:.6vw;display:flex;align-items:center;justify-content:center}#qr-img svg{width:100%;height:100%}
+.qr-meta{max-width:38vw}#qr-text{font-size:1.6vw;font-weight:600;line-height:1.25}#qr-src{margin-top:.6vw;font-size:1vw;word-break:break-all}#qr-hint{margin-top:1vw;color:var(--acc);font-size:1vw}
+body.tv #ticker .lbl{cursor:default}body.tv .lbl::after{content:"  ◀ ▶ OK";color:var(--acc);font-weight:500;letter-spacing:0;margin-left:.6vw}
+.ti+.ti::before{content:"";width:.4vw;height:.4vw;border-radius:50%;background:var(--line);margin-right:1.2vw}
+header{display:flex;justify-content:space-between;align-items:baseline}
+header h1{margin:0;font-size:2vw;font-weight:600;letter-spacing:.02em}
+header .clock{font-size:3.2vw;font-weight:300;font-variant-numeric:tabular-nums}
+header .date{color:var(--dim);font-size:1.1vw}
+header .wxnow{font-size:1.6vw;color:var(--fg);display:flex;gap:1.2vw;align-items:baseline}
+header .wxnow b{font-size:2.6vw;font-weight:500}
+main{display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(3,1fr);gap:.9vw;min-height:0}
+.tall{grid-row:span 2}
+.ev{display:flex;gap:.6vw;padding:.3vw 0;border-bottom:1px solid var(--line);font-size:1vw;align-items:baseline}.ev:last-child{border-bottom:0}
+.ev .t{color:var(--dim);min-width:4.2vw;font-variant-numeric:tabular-nums;font-size:.9vw}.ev .c{width:.5vw;height:.5vw;border-radius:50%;flex:none;display:inline-block}
+.ev .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dayhdr{font-size:.8vw;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;margin:.5vw 0 .2vw}
+.card{background:var(--card);border:1px solid var(--line);border-radius:1vw;padding:1vw 1.2vw;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.card h2{margin:0 0 .5vw;font-size:.95vw;font-weight:600;color:var(--dim);text-transform:uppercase;letter-spacing:.12em;display:flex;justify-content:space-between}
+.big{font-size:2.8vw;font-weight:600;line-height:1;font-variant-numeric:tabular-nums}
+.sub{color:var(--dim);font-size:.95vw;margin-top:.25vw}
+.row{display:flex;justify-content:space-between;align-items:center;padding:.3vw 0;border-bottom:1px solid var(--line);font-size:1.05vw;gap:1vw}
+.row:last-child{border-bottom:0}.row .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.row .v{color:var(--dim);white-space:nowrap;font-variant-numeric:tabular-nums}
+.dot{display:inline-block;width:.65vw;height:.65vw;border-radius:50%;margin-right:.5vw;background:var(--dim);vertical-align:middle}
+.dot.ok{background:var(--ok);box-shadow:0 0 .6vw var(--ok)}.dot.bad{background:var(--bad)}.dot.warn{background:var(--warn)}
+.bar{height:.5vw;background:var(--line);border-radius:.25vw;overflow:hidden;margin-top:.5vw}.bar i{display:block;height:100%;background:var(--acc)}
+.list{overflow:hidden;flex:1;min-height:0}
+.bulbs{display:grid;grid-template-columns:repeat(5,1fr);gap:.5vw;margin-top:.3vw}
+.bulb{aspect-ratio:1;border-radius:.5vw;background:var(--line);display:flex;align-items:center;justify-content:center;font-size:.85vw;color:var(--dim);border:1px solid transparent}
+.bulb.on{background:#3a3313;border-color:#7a6a1d;color:#ffd866}
+.stale{color:var(--bad);font-size:.9vw}
+.hours{display:flex;gap:.4vw;margin-top:.4vw}.hr{flex:1;text-align:center;font-size:.8vw;color:var(--dim)}.hr b{display:block;color:var(--fg);font-size:1.05vw;font-weight:500}.hr i{display:block;height:.35vw;background:var(--acc);border-radius:.2vw;margin-top:.3vw;opacity:.6}
+.tag{display:inline-block;padding:.1vw .5vw;border-radius:.4vw;font-size:.85vw;background:var(--line);color:var(--fg)}
+.tag.good{background:#153a26;color:var(--ok)}.tag.ok{background:#3a3313;color:var(--warn)}.tag.windy{background:#3a1515;color:var(--bad)}
+.fish{display:flex;gap:1vw;margin-top:.3vw}.fish div{flex:1}.fish h3{margin:0 0 .2vw;font-size:.85vw;color:var(--dim);font-weight:600;text-transform:uppercase;letter-spacing:.08em}.fish li{font-size:.95vw;list-style:none;padding:.12vw 0}
+.tip{font-size:.9vw;color:var(--acc);margin-top:.4vw}
+#alert{position:fixed;left:50%;top:2vh;transform:translateX(-50%);background:#3a1515;border:1px solid var(--bad);color:#fff;padding:1vw 2vw;border-radius:1vw;font-size:1.4vw;display:none;z-index:9;box-shadow:0 .5vw 2vw #000a}
+#alert.show{display:block}
+.pac{font-size:2vw;letter-spacing:-.1em}
+</style><style id="tagcss"></style><script src="qrcode.min.js"></script></head><body>
+<div id="alert"></div>
+<header>
+ <div><h1 id="title">HOME</h1><div class="date" id="date"></div></div>
+ <div class="wxnow" id="wxnow"></div>
+ <div class="clock" id="clock">--:--</div>
+</header>
+<main>
+ <section class="card" data-card="wx"><h2><span class="lbltxt">Weather</span> <span id="fly"></span></h2>
+  <div class="list" id="wx"></div></section>
+ <section class="card" data-card="tide"><h2><span class="lbltxt">Tide</span> <span class="sub" id="water"></span></h2>
+  <div class="list" id="tide"></div></section>
+ <section class="card" data-card="fish"><h2><span class="lbltxt">What's biting</span></h2><div class="list" id="fish"></div></section>
+ <section class="card tall" data-card="lan"><h2><span class="lbltxt">Devices</span> <span class="sub" id="lan-count"></span></h2><div class="list" id="lan"></div></section>
+ <section class="card" data-card="pihole"><h2><span class="lbltxt">Pi-hole</span> <span id="ph-err" class="stale"></span></h2>
+  <div class="big" id="ph-pct">--%</div><div class="sub"><span id="ph-blocked">-</span> blocked of <span id="ph-total">-</span> today · <span id="ph-clients">-</span> clients</div>
+  <div class="bar"><i id="ph-bar" style="width:0"></i></div>
+  <div class="list" id="ph-top" style="margin-top:.6vw"></div></section>
+ <section class="card" data-card="pr"><h2><span class="lbltxt">Printers</span></h2><div class="list" id="pr"></div></section>
+ <section class="card" data-card="wg"><h2><span class="lbltxt">VPN</span> <span id="wg-err" class="stale"></span></h2><div class="list" id="wg"></div></section>
+ <section class="card" data-card="wiz"><h2><span class="lbltxt">Lights</span> <span class="sub" id="wiz-count"></span></h2><div class="bulbs" id="wiz"></div></section>
+ <section class="card" data-card="net"><h2><span class="lbltxt">Internet · Pi</span> <span id="age" class="sub"></span></h2>
+  <div class="list" id="net"></div>
+  <div class="pac sub" style="margin-top:auto">ᗧ·····ᗣ <span id="pac-n"></span></div></section>
+ <section class="card" data-card="sites"><h2><span class="lbltxt">Websites</span> <span class="sub" id="site-sum"></span></h2><div class="list" id="sites"></div></section>
+ <section class="card" data-card="cal"><h2><span class="lbltxt">Calendar</span> <span class="sub" id="cal-sum"></span></h2><div class="list" id="cal"></div></section>
+</main>
+<footer id="ticker"><div class="lbl" id="wirebtn" title="open the full wire">WIRE ▴</div><div class="win"><div id="track"></div></div></footer>
+<div id="qr"><div class="qr-box"><div id="qr-img"></div><div class="qr-meta"><div id="qr-text"></div><div id="qr-src" class="sub"></div><div id="qr-hint" class="sub"></div></div></div></div>
+<div id="wirepanel"><div class="wp-head"><span>THE WIRE · tap a headline to open it</span><button id="wireclose">close</button></div><div id="wirelist"></div></div>
+<audio id="snd" preload="auto"><source src="sounds/newdevice.mp3" type="audio/mpeg"><source src="sounds/newdevice.ogg" type="audio/ogg"></audio>
+<audio id="snd2" preload="auto"><source src="sounds/returned.mp3" type="audio/mpeg"><source src="sounds/returned.ogg" type="audio/ogg"></audio>
+<script>
+const $=id=>document.getElementById(id);
+const fmtAge=s=>s==null?'never':s<60?s+'s':s<3600?Math.floor(s/60)+'m':s<86400?Math.floor(s/3600)+'h':Math.floor(s/86400)+'d';
+const fmtUp=s=>s>86400?Math.floor(s/86400)+'d '+Math.floor(s%86400/3600)+'h':Math.floor(s/3600)+'h '+Math.floor(s%3600/60)+'m';
+const localDate=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const h12=t=>{const [h,m]=t.split(':').map(Number);return (h%12||12)+':'+String(m).padStart(2,'0')+(h<12?'a':'p')};
+function clock(){const d=new Date();$('clock').textContent=d.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'});$('date').textContent=d.toLocaleDateString([], {weekday:'long',month:'long',day:'numeric'});}
+let announced=new Set();
+function alertNew(list){
+ const fresh=list.filter(d=>!announced.has(d.mac));
+ if(!fresh.length) return;
+ fresh.forEach(d=>announced.add(d.mac));
+ const d=fresh[0];
+ $('alert').textContent=`NEW DEVICE ON THE NETWORK: ${d.ip}  ${d.vendor||d.mac}`;
+ $('alert').classList.add('show');
+ const A=(CFG&&CFG.alerts)||{};
+ if(A.sound_new!==false){try{const a=$('snd');a.currentTime=0;a.play().catch(()=>{});}catch(e){}}
+ setTimeout(()=>$('alert').classList.remove('show'),(+A.banner_new_s||20)*1000);
+}
+let ret=new Set();
+function alertBack(list,quiet){
+ const fresh=list.filter(d=>!ret.has(d.mac+d.ts));
+ if(!fresh.length) return;
+ fresh.forEach(d=>ret.add(d.mac+d.ts));
+ const d=fresh[0];
+ $('alert').style.background='#153a26';$('alert').style.borderColor='var(--ok)';
+ $('alert').textContent=`${d.name} is back (away ${fmtAge(d.away)})`;
+ $('alert').classList.add('show');
+ const A=(CFG&&CFG.alerts)||{};
+ if(!quiet&&A.sound_return!==false){try{const a=$('snd2');a.currentTime=0;a.play().catch(()=>{});}catch(e){}}
+ setTimeout(()=>{$('alert').classList.remove('show');$('alert').style.background='';$('alert').style.borderColor='';},(+A.banner_return_s||12)*1000);
+}
+function render(s){
+ if(s.cfg) applyCfg(s.cfg);
+ const now=Math.floor(Date.now()/1000), age=now-s.ts; $('age').textContent=age>120?'stale '+fmtAge(age):'';
+ const p=s.pihole; if(p.ok){$('ph-pct').textContent=p.pct+'%';$('ph-blocked').textContent=p.blocked.toLocaleString();$('ph-total').textContent=p.total.toLocaleString();$('ph-clients').textContent=p.clients;$('ph-bar').style.width=p.pct+'%';$('ph-err').textContent='';
+   $('ph-top').innerHTML=p.top_blocked.slice(0,4).map(([d,c])=>`<div class="row"><span class="n">${d}</span><span class="v">${c}</span></div>`).join('');$('pac-n').textContent=p.blocked.toLocaleString()+' ghosts today';}
+ else $('ph-err').textContent=p.err;
+ const w=s.wg; if(w.ok){$('wg-err').textContent='';$('wg').innerHTML=w.peers.map(x=>`<div class="row"><span class="n"><i class="dot ${x.up?'ok':''}"></i>${x.name}</span><span class="v">${x.up?'connected':x.handshake_age==null?'never':fmtAge(x.handshake_age)+' ago'}</span></div>`).join('');} else $('wg-err').textContent=w.err;
+ const l=s.lan; if(l.ok){$('lan-count').textContent=l.active+' active';$('lan').innerHTML=l.hosts.map(h=>`<div class="row"><span class="n"><i class="dot ${h.online?'ok':''}"></i>${h.name}</span><span class="v">${h.online?'online':h.seen==null?'—':fmtAge(h.seen)}</span></div>`).join('');if(l.recent_new&&l.recent_new.length)alertNew(l.recent_new);if(l.returned&&l.returned.length)alertBack(l.returned,l.quiet);}
+ const z=s.wiz; if(z.ok){$('wiz-count').textContent=z.on+' on';$('wiz').innerHTML=z.bulbs.map(b=>`<div class="bulb ${b.on?'on':''}" title="${b.ip}">${b.on?b.dim+'%':b.on==null?'?':'off'}</div>`).join('');}
+ const pr=s.printers; if(pr.ok){$('pr').innerHTML=pr.printers.map(x=>{const c=x.count||{};const cnt=`<span class="v">${c.total||0} prints · ${c.week||0} wk · ${c.hours||0} h</span>`;const st=x.state==='free'?'idle':(x.state||'idle');return x.lan?`<div class="row" style="flex-direction:column;align-items:stretch"><div style="display:flex;justify-content:space-between"><span class="n"><i class="dot ${st==='printing'?'ok':st==='error'?'bad':''}"></i>${x.name} · ${st}</span><span class="v">${x.nozzle}° / ${x.bed}°${x.chamber?' / '+x.chamber+'°':''}</span></div><div style="display:flex;justify-content:space-between"><span class="sub">${st==='printing'||st==='paused'?[x.file,x.progress!=null?x.progress+'%':'',x.layer?'layer '+x.layer+(x.layers?'/'+x.layers:''):'',x.remaining?fmtUp(x.remaining)+' left':x.elapsed?fmtUp(x.elapsed):''].filter(Boolean).join(' · '):(x.err?x.err:'')}</span>${cnt}</div>${st==='printing'||st==='paused'?`<div class="bar"><i style="width:${x.progress}%"></i></div>`:''}</div>`:`<div class="row"><span class="n"><i class="dot"></i>${x.name} <span class="sub">LAN mode off</span></span>${cnt}</div>`}).join('');}
+ const y=s.sys, o=s.out||{}, inet=o.internet||{};
+ const netRows=[];
+ if(inet.cloudflare)netRows.push(`<div class="row"><span class="n"><i class="dot ${inet.cloudflare.loss?'bad':'ok'}"></i>Internet</span><span class="v">${inet.cloudflare.ms!=null?inet.cloudflare.ms+' ms':'down'}${inet.cloudflare.loss?' · '+inet.cloudflare.loss+'% loss':''}</span></div>`);
+ if(inet.public_ip)netRows.push(`<div class="row"><span class="n"><i class="dot ${inet.ddns_ok?'ok':'warn'}"></i>Public IP · DDNS ${inet.ddns_ok?'matches':'MISMATCH'}</span><span class="v">${inet.public_ip}</span></div>`);
+ if(y&&y.ok)netRows.push(`<div class="row"><span class="n">Pi</span><span class="v">${y.temp}° · load ${y.load} · mem ${y.mem_pct}% · up ${fmtUp(y.uptime)}</span></div>`);
+ $('net').innerHTML=netRows.join('');
+ const wx=o.weather; if(wx&&wx.ok){
+   const n=wx.now; $('wxnow').innerHTML=`<b>${n.temp}°</b><span>${n.short}</span><span class="sub" style="font-size:1.1vw">wind ${n.wind||0} ${n.dir||''}</span>`;
+   $('fly').innerHTML=`<span class="tag ${wx.fly}">drone: ${wx.fly}</span>`;
+   const hrs=wx.hours.filter((_,i)=>i%2===0).slice(0,6).map(h=>`<div class="hr">${h12(h.t)}<b>${h.temp}°</b>${h.wind}mph<i style="width:${Math.min(100,h.rain)}%"></i></div>`).join('');
+   const days=wx.days.filter(d=>d.day).slice(0,3).map(d=>`<div class="row"><span class="n">${d.name}</span><span class="v">${d.temp}° · ${d.short}${d.rain?' · '+d.rain+'%':''}</span></div>`).join('');
+   const al=wx.alerts.length?`<div class="row" style="color:var(--bad)"><span class="n">⚠ ${wx.alerts[0].event}</span></div>`:'';
+   $('wx').innerHTML=al+`<div class="hours">${hrs}</div><div style="margin-top:.5vw">${days}</div>`;
+ } else if(wx){$('wx').innerHTML=`<div class="stale">${wx.err}</div>`}
+ const td=o.tides; if(td&&td.ok){
+   $('water').textContent=td.water_temp?'water '+td.water_temp+'°':'';
+   $('tide').innerHTML=td.next.map((t,i)=>`<div class="row"><span class="n"><i class="dot ${i===0?'ok':''}"></i>${t.type==='high'?'High':'Low'} tide</span><span class="v">${h12(t.t.slice(11))}${t.t.slice(0,10)!==localDate()?' tmrw':''} · ${t.ft} ft</span></div>`).join('');
+ }
+ const f=o.fishing; if(f){
+   $('fish').innerHTML=`<div class="fish"><div><h3>Inshore</h3>${f.inshore.map(x=>`<li>${x}</li>`).join('')}</div><div><h3>Surf · pier</h3>${f.surf.map(x=>`<li>${x}</li>`).join('')}</div></div>`+f.tips.map(t=>`<div class="tip">${t}</div>`).join('');
+ }
+ const si=s.sites; if(si&&si.sites){
+   const down=si.sites.filter(x=>!x.up).length; $('site-sum').textContent=down?down+' DOWN':'all up';
+   $('sites').innerHTML=si.sites.map(x=>{
+     const cls=!x.up?'bad':(x.changed||(x.cert_days!=null&&x.cert_days<14))?'warn':'ok';
+     const v=!x.up?('down'+(x.status?' · '+x.status:'')):[x.ms+' ms',x.cert_days!=null?'cert '+x.cert_days+'d':null].filter(Boolean).join(' · ');
+     const extra=[x.changed?'⚠ home page changed':null,x.leads!=null?x.leads+' leads':null,x.comments_pending?x.comments_pending+' comments to moderate':null,x.wp_err&&x.leads==null?(x.wp_err.includes('app password')?'leads: set up at '+location.hostname+':8089':x.wp_err):null].filter(Boolean).join(' · ');
+     return `<div class="row" style="flex-direction:column;align-items:stretch"><div style="display:flex;justify-content:space-between"><span class="n"><i class="dot ${cls}"></i>${x.name}</span><span class="v">${v}</span></div>${extra?`<div class="sub" style="margin-top:0">${extra}</div>`:''}</div>`}).join('');
+ } else if(si&&si.err){$('sites').innerHTML=`<div class="sub">${si.err}</div>`}
+ const tk=s.ticker; if(tk&&tk.ok&&tk.items&&tk.items.length) setTicker(tk.items);
+ const ca=s.cal; if(ca&&ca.ok){
+   const today=localDate();
+   const ev=ca.events||[]; const td=ev.filter(e=>e.start.slice(0,10)===today), tm=ev.filter(e=>e.start.slice(0,10)!==today);
+   $('cal-sum').textContent=td.length?td.length+' today':'nothing today';
+   const line=e=>`<div class="ev"><span class="t">${e.allday?'all day':h12(e.start.slice(11,16))}</span><i class="c" style="background:${e.color||'var(--acc)'}"></i><span class="n">${e.title}${e.where?' <span class="sub" style="font-size:.85vw">· '+e.where.split(',')[0]+'</span>':''}</span></div>`;
+   $('cal').innerHTML=(td.length?td.map(line).join(''):'<div class="sub">free day</div>')+(tm.length?`<div class="dayhdr">tomorrow</div>`+tm.slice(0,5).map(line).join(''):'')+(ca.calendars<2?'<div class="sub" style="margin-top:auto">add your calendars at '+location.hostname+':8089</div>':'');
+ } else if(ca){$('cal').innerHTML=`<div class="sub">${ca.err&&(ca.err.includes('No such file')||ca.err.includes('no calendars'))?'add your calendars at '+location.hostname+':8089':ca.err||''}</div>`}
+}
+// Slow auto-scroll for any card whose content overflows: hold at top, drift down at reading pace,
+// hold at the bottom, then ease back up. Survives the 15 s re-render because position lives here, not in the DOM.
+const SPEED=14, HOLD_TOP=5000, HOLD_BOT=4500, UP_SPEED=260;   // px/s, ms, ms, px/s
+const scrollers=new Map();
+function autoscroll(now){
+ document.querySelectorAll('.list').forEach(el=>{
+   let st=scrollers.get(el); if(!st){st={phase:'top',t:now,pos:0};scrollers.set(el,st);}
+   const max=el.scrollHeight-el.clientHeight;
+   if(max<=4){st.phase='top';st.pos=0;el.scrollTop=0;st.t=now;st.last=now;return;}
+   const dt=(now-(st.last||now))/1000; st.last=now;
+   if(st.phase==='top'){ if(now-st.t>HOLD_TOP){st.phase='down';} }
+   else if(st.phase==='down'){ st.pos+=SPEED*dt; if(st.pos>=max){st.pos=max;st.phase='bot';st.t=now;} }
+   else if(st.phase==='bot'){ if(now-st.t>HOLD_BOT){st.phase='up';} }
+   else if(st.phase==='up'){ st.pos-=UP_SPEED*dt; if(st.pos<=0){st.pos=0;st.phase='top';st.t=now;} }
+   if(Math.abs(el.scrollTop-st.pos)>0.5) el.scrollTop=st.pos;
+ });
+ requestAnimationFrame(autoscroll);
+}
+requestAnimationFrame(autoscroll);
+// ---- config (from the Pi's config.json, delivered inside state.json as s.cfg) ----
+const TV=new URLSearchParams(location.search).get('tv')==='1';   // the Fire TV app loads ?tv=1
+let CFG=null, cfgKey='', pollTimer=null, POLL=5000;
+function applyCfg(c){
+ const key=JSON.stringify(c); if(key===cfgKey) return; cfgKey=key; CFG=c;
+ $('title').textContent=c.title||'';
+ const main=document.querySelector('main'); main.style.gridTemplateColumns=`repeat(${c.grid.columns},1fr)`; main.style.gridTemplateRows=`repeat(${c.grid.rows},1fr)`;
+ const labels={wx:'Weather · '+c.weather.label, tide:'Tide · '+c.tides.label};
+ document.querySelectorAll('[data-card]').forEach(sec=>{
+   const id=sec.dataset.card, i=c.cards.findIndex(x=>x.id===id), cc=c.cards[i];
+   sec.style.display=(cc&&cc.on!==false)?'':'none'; sec.style.order=i<0?99:i; sec.classList.toggle('tall',!!(cc&&cc.tall));
+   const l=sec.querySelector('.lbltxt'); if(l) l.textContent=(cc&&cc.label&&!/^(Weather|Tide)$/.test(cc.label))?cc.label:(labels[id]||(cc&&cc.label)||l.textContent);
+ });
+ const tk=c.ticker||{}; $('ticker').style.display=tk.on===false?'none':''; TICK_SPEED=+tk.speed||95; $('wirebtn').textContent=(tk.label||'WIRE')+(TV?'':' ▴');
+ let css=''; for(const [tag,col] of Object.entries(tk.tags||{})) css+=`.tg.${tag}{color:${col};background:${col}22}`; $('tagcss').textContent=css;
+ const p=Math.max(2000,(+c.intervals.page||5)*1000); if(p!==POLL){POLL=p; clearInterval(pollTimer); pollTimer=setInterval(tick,POLL);}
+}
+// Bottom wire: items scroll right-to-left continuously; the track is doubled so it loops seamlessly.
+let TICK_SPEED=95; let tkKey='', tkX=0, tkHalf=0, tkLast=0;
+function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
+function setTicker(items){
+ const key=JSON.stringify(items.map(i=>i.text)); if(key===tkKey) return; tkKey=key;
+ const item=i=>`<span class="tg ${i.tag}">${i.tag}</span><span>${esc(i.text)}</span><span class="src">${esc(i.src)}</span>`;
+ const html=items.map(i=>i.url?`<a class="ti" href="${esc(i.url)}" target="_blank" rel="noopener">${item(i)}</a>`:`<span class="ti">${item(i)}</span>`).join('');
+ const tr=$('track'); tr.innerHTML=html+html; tkHalf=tr.scrollWidth/2; tkX=Math.min(tkX,tkHalf);
+ $('wirelist').innerHTML=items.map(i=>`<div class="wl">${i.url?`<a href="${esc(i.url)}" target="_blank" rel="noopener">${item(i)}</a>`:item(i)}</div>`).join('');
+ if(new URLSearchParams(location.search).get('demo')==='qr'&&tvSel<0) setTimeout(()=>{tvSelect(1);tvKey('ok');},400);   // screenshot helper
+}
+let tkPaused=false;
+function tickerFrame(now){
+ if(tkHalf>0&&!tkPaused){const dt=Math.min(0.1,(now-(tkLast||now))/1000); tkX+=TICK_SPEED*dt; if(tkX>=tkHalf) tkX-=tkHalf; $('track').style.transform=`translateX(${-tkX}px)`;}
+ tkLast=now; requestAnimationFrame(tickerFrame);
+}
+requestAnimationFrame(tickerFrame);
+// Mouse or finger on the wire pauses it so a headline can be clicked; the WIRE label opens the full list.
+const tkEl=$('ticker'); ['mouseenter','touchstart'].forEach(e=>tkEl.addEventListener(e,()=>tkPaused=true,{passive:true}));
+['mouseleave','touchend','touchcancel'].forEach(e=>tkEl.addEventListener(e,()=>setTimeout(()=>tkPaused=false,800),{passive:true}));
+$('wirebtn').addEventListener('click',()=>{$('wirepanel').classList.toggle('show')});
+$('wireclose').addEventListener('click',()=>$('wirepanel').classList.remove('show'));
+// ---- TV remote mode: the Fire TV app forwards ◀ ▶ OK BACK here as tvKey(); returns 'handled' or 'pass'.
+let tvItems=[], tvSel=-1, tvIdle=null, qrOpen=false;
+function tvItemsNow(){return Array.from($('track').children).slice(0,$('track').children.length/2);}
+function tvSelect(i){
+ const els=tvItemsNow(); if(!els.length) return;
+ tvSel=(i+els.length)%els.length; els.forEach((e,j)=>e.classList.toggle('sel',j===tvSel));
+ tkPaused=true; tkX=Math.max(0,els[tvSel].offsetLeft-12); $('track').style.transform=`translateX(${-tkX}px)`;
+ clearTimeout(tvIdle); tvIdle=setTimeout(tvExit,90000);
+}
+function tvExit(){tvItemsNow().forEach(e=>e.classList.remove('sel')); tvSel=-1; tkPaused=false; closeQr();}
+function openQr(el){
+ const a=el.tagName==='A'?el:null; const url=a?a.href:''; const text=el.children[1]?el.children[1].textContent:''; const src=el.querySelector('.src')?el.querySelector('.src').textContent:'';
+ $('qr-text').textContent=text; $('qr-src').textContent=src+(url?' · '+url.replace(/^https?:\/\//,'').slice(0,70):'');
+ let svg=''; try{ if(url&&typeof qrcode==='function'){const q=qrcode(0,'M'); q.addData(url); q.make(); svg=q.createSvgTag({cellSize:6,margin:2,scalable:true});} }catch(e){}
+ $('qr-img').innerHTML=svg||'<div class="sub">no link for this item</div>'; $('qr-hint').textContent=url?(TV?'scan with your phone · OK again opens it on the TV · BACK closes':'scan with your phone · ESC closes'):'';
+ $('qr').classList.add('show'); qrOpen=true; $('qr').dataset.url=url;
+}
+function closeQr(){$('qr').classList.remove('show'); qrOpen=false;}
+function tvKey(k){
+ if(k==='back'){ if(qrOpen){closeQr();return 'handled';} if(tvSel>=0){tvExit();return 'handled';} return 'pass'; }
+ if(k==='left'||k==='right'){ if(qrOpen) closeQr(); tvSelect(tvSel<0?0:tvSel+(k==='right'?1:-1)); return 'handled'; }
+ if(k==='ok'){ const els=tvItemsNow(); if(tvSel<0){tvSelect(0);return 'handled';}
+   if(qrOpen){const u=$('qr').dataset.url; if(u){location.href=u;} return 'handled';}   // the app intercepts and opens the TV browser
+   openQr(els[tvSel]); return 'handled'; }
+ return 'pass';
+}
+window.tvKey=tvKey;
+document.addEventListener('keydown',e=>{   // same controls on a PC keyboard / TV browser
+ const map={ArrowLeft:'left',ArrowRight:'right',Enter:'ok',Escape:'back',Backspace:'back'}; const k=map[e.key]; if(!k) return;
+ if(k==='back'&&!qrOpen&&tvSel<0) return; if(tvKey(k)==='handled') e.preventDefault();
+});
+$('qr').addEventListener('click',closeQr);
+if(TV) document.body.classList.add('tv');
+async function tick(){try{const r=await fetch('state.json?'+Date.now(),{cache:'no-store'});render(await r.json());}catch(e){$('age').textContent='no data';}}
+clock();setInterval(clock,1000);tick();pollTimer=setInterval(tick,POLL);
+</script></body></html>

@@ -1,0 +1,13 @@
+[Unit]
+Description=House dashboard: news/UFC ticker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/python3 /opt/housedash/ticker.py
+Restart=always
+RestartSec=60
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

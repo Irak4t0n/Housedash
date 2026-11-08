@@ -1,0 +1,11 @@
+[Unit]
+Description=House dashboard setup page (port 8089, LAN only)
+After=network-online.target
+
+[Service]
+ExecStart=/usr/bin/python3 /opt/housedash/setup.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,13 @@
+[Unit]
+Description=House dashboard: calendar (iCal feeds from /etc/housedash/calendars.txt)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/opt/housedash/venv/bin/python /opt/housedash/gcal.py
+Restart=always
+RestartSec=60
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

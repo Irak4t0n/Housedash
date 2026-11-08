@@ -1,0 +1,13 @@
+[Unit]
+Description=House dashboard: weather, tide, fishing, internet health
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/python3 /opt/housedash/outdoors.py
+Restart=always
+RestartSec=30
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

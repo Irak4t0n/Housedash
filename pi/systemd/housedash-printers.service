@@ -1,0 +1,13 @@
+[Unit]
+Description=House dashboard: Anycubic LAN-mode watcher
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/opt/housedash/venv/bin/python /opt/housedash/printers.py
+Restart=always
+RestartSec=15
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

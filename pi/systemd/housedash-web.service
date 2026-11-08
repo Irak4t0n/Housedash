@@ -1,0 +1,13 @@
+[Unit]
+Description=House dashboard web (static, port 8088)
+After=network-online.target
+
+[Service]
+User=housedash
+WorkingDirectory=/var/lib/housedash
+ExecStart=/usr/bin/python3 -m http.server 8088 --bind 0.0.0.0
+Restart=always
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

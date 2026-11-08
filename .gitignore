@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+venv/
+tv-app/build/
+tv-app/*.keystore
+tv-app/*.apk
+pi/web/sounds/newdevice.*
+pc/sounds/newdevice.*
+*.env
+pihole_password
+calendars.txt
