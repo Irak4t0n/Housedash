@@ -110,16 +110,20 @@ def lan():
     del _returns[:max(0, len(_returns) - 20)]
     recent_ret = [r for r in _returns if now - r["ts"] < 600]
     return {"ok": True, "hosts": hosts, "active": active, "known": len(last), "new": new, "recent_new": recent,
-            "returned": recent_ret, "quiet": quiet_now(), "people": people(last, now)}
+            "returned": recent_ret, "quiet": quiet_now(), "people": people(last, now, {m.lower(): lq for _, lq, m, _, _ in rows if m})}
 
 # ---- who's home: phones from config "people", present if Pi-hole saw a query from them recently ----
 _people_state = {}      # ip -> {"home": bool, "since": ts}
 AWAY_AFTER = 1200       # phones go quiet on Wi-Fi; 20 min without DNS = left
 
-def people(last, now):
+def people(last, now, by_mac=None):
+    """Each person is a phone, identified by IP or by MAC (a MAC survives DHCP changes; phones keep one
+    random MAC per Wi-Fi network, so it's stable at home)."""
     out = []
     for p in PEOPLE:
-        ip = p.get("ip"); lq = last.get(ip)
+        ip = (p.get("ip") or "").strip().lower()
+        if ":" in ip and by_mac is not None: lq = by_mac.get(ip)          # it's a MAC
+        else: lq = last.get(ip)
         home = bool(lq and now - lq < AWAY_AFTER)
         st = _people_state.get(ip)
         if st is None:
@@ -225,13 +229,17 @@ def away_rule(cfg, lan_state, wiz_state):
     else:
         _away_done = False
 
+_wiz_mac = {}   # ip -> mac, learned from getPilot replies; lets config "lights_by_mac" name bulbs that move IP
 def wiz():
     out, on = [], 0
+    by_mac = hdconfig.load().get("lights_by_mac", {})
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); s.settimeout(0.6)
     for ip, name in WIZ.items():
         try:
             s.sendto(b'{"method":"getPilot","params":{}}', (ip, 38899))
             d = json.loads(s.recv(1024))["result"]
+            mac = (d.get("mac") or "").lower(); _wiz_mac[ip] = mac
+            name = by_mac.get(mac, name)
             out.append({"name": name, "ip": ip, "on": d.get("state", False), "dim": d.get("dimming", 0)})
             on += 1 if d.get("state") else 0
         except Exception:

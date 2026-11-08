@@ -83,17 +83,31 @@ def section_html(c, sec):
                   "audit": "nightly port scan found changes", "storm": "new tropical storm / hurricane in the Gulf", "test": "test button"}
         boxes = "".join(f"<p style='margin:4px 0'>{chk('ev_' + k, ev.get(k, True))} {E(v)}</p>" for k, v in labels.items())
         sub = f"{n['server'].rstrip('/')}/{n['topic']}"
-        return (f"<p>{chk('on', n['on'])} send push notifications &nbsp;&nbsp; {chk('quiet', n['quiet_respect'])} deliver silently during quiet hours</p>"
+        qr = ""
+        try:
+            import qrcode, qrcode.image.svg
+            svg = qrcode.make(sub, image_factory=qrcode.image.svg.SvgPathImage, box_size=6, border=2).to_string().decode()
+            qr = f"<div style='background:#fff;border-radius:10px;padding:8px;width:190px;height:190px;float:right;margin:0 0 8px 12px'>{re.sub(r'<\?xml[^>]*>', '', svg).replace('<svg ', '<svg style=\"width:100%;height:100%\" ', 1)}</div>"
+        except Exception: pass
+        return (f"{qr}<p>{chk('on', n['on'])} send push notifications &nbsp;&nbsp; {chk('quiet', n['quiet_respect'])} deliver silently during quiet hours</p>"
+                f"<p class=dim>Phone not on the LAN? Scan the QR with the phone's camera - it opens the topic in the ntfy app (or ntfy.sh in the browser) and you tap Subscribe.</p>"
                 f"<div class=row>{field('ntfy server', inp('server', n['server']))}{field('Topic (keep it private - anyone with it can post to your phone)', inp('topic', n['topic']))}</div>"
                 f"<ol class=help><li>Install the <b>ntfy</b> app (Android / iOS) or open <a style=color:#4cc2ff href='{E(sub)}' target=_blank>{E(sub)}</a> in a browser.</li><li>Subscribe to topic <b>{E(n['topic'])}</b> on server {E(n['server'])}. That's it - phones on any network get them.</li></ol>"
                 f"<button formaction=/api/notify/test formmethod=post>Send a test</button> <button>Save</button><h2>Events</h2>{boxes}<button>Save</button>")
     if sec == "people":
         rows = "".join(f"<tr><td class=k>{inp(f'k{i}', p['name'])}</td><td>{inp(f'v{i}', p['ip'])}</td></tr>" for i, p in enumerate(c["people"]))
         r = c["rules"]
-        return (f"<p class=dim>Phones, by IP (give them DHCP reservations in your router). Home = Pi-hole saw a DNS query from it in the last N minutes. Clear a name to remove.</p>"
-                f"<table><tr><th>name</th><th>phone IP</th></tr>{rows}<tr><td class=k>{inp('newk', '')}</td><td>{inp('newv', '')}</td></tr></table>"
+        seen = ""
+        try:
+            import sqlite3, time as _t
+            db = sqlite3.connect("file:/etc/pihole/pihole-FTL.db?mode=ro", uri=True); now = int(_t.time())
+            cand = [(ip, mac, vendor or "", now - lq) for ip, lq, mac, vendor in db.execute("select a.ip, n.lastQuery, n.hwaddr, n.macVendor from network n join network_addresses a on a.network_id=n.id where n.lastQuery > ? and a.ip like '192.%' order by n.lastQuery desc", (now - 7200,))]
+            seen = "<p class=dim>Seen on the LAN in the last 2 h (phones usually show a blank or Apple/Samsung/Google vendor and a randomized MAC starting with an odd second digit):</p><table><tr><th>IP</th><th>MAC</th><th>vendor</th><th>last DNS</th></tr>" + "".join(f"<tr><td>{E(ip)}</td><td><code>{E(mac or '')}</code></td><td>{E(v[:22])}</td><td>{a}s</td></tr>" for ip, mac, v, a in cand[:40]) + "</table>"
+        except Exception: pass
+        return (f"<p class=dim>Phones, by <b>IP or MAC</b>. MAC is better: it survives DHCP changes, and phones keep one randomized MAC per Wi-Fi network. Home = Pi-hole saw a DNS query from it in the last N minutes. Clear a name to remove.</p>"
+                f"<table><tr><th>name</th><th>phone IP or MAC</th></tr>{rows}<tr><td class=k>{inp('newk', '')}</td><td>{inp('newv', '')}</td></tr></table>"
                 f"<div class=row>{field('Away after (minutes without DNS)', inp('away', r['away_minutes'], 'number'))}</div>"
-                f"<p>{chk('lightsoff', r['lights_off_when_away'])} turn all lights off when everyone has been away that long</p><button>Save</button>")
+                f"<p>{chk('lightsoff', r['lights_off_when_away'])} turn all lights off when everyone has been away that long</p><button>Save</button>{seen}")
     if sec == "wol":
         rows = "".join(f"<tr><td class=k>{inp(f'name{i}', w['name'])}</td><td class=k>{inp(f'mac{i}', w['mac'])}</td><td>{inp(f'ip{i}', w.get('ip', ''))}</td><td class=c><input type=checkbox name='del{i}'></td></tr>" for i, w in enumerate(c["wol"]))
         return (f"<p class=dim>Wake-on-LAN targets: a <b>Wake</b> button appears on the dashboard's phone/PC view and at <code>POST /api/wake?name=…</code> on this port. The PC needs 'Wake on magic packet' enabled on its NIC and in BIOS. Last column removes.</p>"
@@ -131,7 +145,11 @@ def section_html(c, sec):
                 f"<h2>Tides (NOAA CO-OPS station ids)</h2><div class=row>{field('Tide station', inp('ts', td['station']))}{field('Station label', inp('tl', td['label']))}{field('Water-temp station', inp('ws', td['water_temp_station']))}</div>"
                 f"<p class=dim>Find stations at tidesandcurrents.noaa.gov/map — Gulf State Park Pier is 8731269, Dauphin Island 8735180, Mobile State Docks 8737048, Pensacola 8729840.</p><button>Save</button>")
     if sec == "printers": return dict_table(c, "printers", "IP", "name", "Anycubic printers in LAN mode. Changing this restarts the printer watcher.")
-    if sec == "lights": return dict_table(c, "lights", "IP", "name", "WiZ bulbs (UDP 38899).")
+    if sec == "lights":
+        haskey = "<span class=ok>✓ signing key saved</span>" if wizctl.signing_key() else "<span class=bad>no signing key yet</span>"
+        return (dict_table(c, "lights", "IP", "name", "WiZ bulbs (UDP 38899).")
+                + f"<h2>WiZ signing key</h2><p class=dim>Bulbs on firmware 1.3x+ refuse local on/off commands unless they're signed with your home's key ({haskey}). Get it once: WiZ app → Settings → <b>Integrations</b> → export / 'local integration' → the file contains <code>udp_signing_key</code> (32 hex characters). Paste it here; it's stored root-only and never shown.</p>"
+                f"<div class=row>{field('udp_signing_key', '<input type=password name=wizkey placeholder=\"32 hex characters\" autocomplete=off>')}</div><button formaction=/wizkey formmethod=post>Save key</button>")
     if sec == "hosts": return dict_table(c, "hosts", "IP", "name", "Devices shown in the Devices card (presence from Pi-hole).")
     if sec == "vpn": return dict_table(c, "wg_names", "tunnel IP", "name", "Names for WireGuard peers by their 10.66.66.x address.")
     if sec == "sites":
@@ -323,6 +341,14 @@ class H(BaseHTTPRequestHandler):
                 name, url, color = g(d, "name").replace("|", "/") or "Calendar", g(d, "url"), g(d, "color") or "#4cc2ff"
                 test_ics(url); write_cals(add=f"{name} | {color} | {url}")
                 msg = f"<div class='msg ok'>✓ added {E(name)} — on the TV within a minute.</div>"
+            elif self.path == "/wizkey":
+                wizctl.save_key(g(d, "wizkey"))
+                c = hdconfig.load(); test, res = None, {}
+                for ip in c["lights"]:   # first bulb that answers a read
+                    res = wizctl.get(ip)
+                    if res: test = ip; break
+                ok = ("error" not in wizctl.set_state(test, on=res.get("state", True))) if test else True
+                msg = f"<div class='msg {'ok' if ok else 'bad'}'>{'✓ key saved and a signed command was accepted by ' + E(test) if ok else '✗ key saved, but the first bulb still rejected a signed command - double-check the key (32 hex chars from the WiZ export)'}</div>"
             elif self.path == "/cal/remove":
                 write_cals(keep=[x for x in cals() if x != g(d, "name")]); msg = f"<div class='msg ok'>removed {E(g(d, 'name'))}</div>"
             elif self.path == "/wp":

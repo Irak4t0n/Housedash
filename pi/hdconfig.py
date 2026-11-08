@@ -59,6 +59,7 @@ DEFAULTS = {
     "tides": {"station": "8731269", "label": "Gulf State Park Pier", "water_temp_station": "8735180"},
     "printers": {},     # ip: name  (Anycubic printers in LAN mode)
     "lights": {},       # ip: name  (WiZ bulbs)
+    "lights_by_mac": {},   # mac: name  (optional; names from the WiZ app export win over the ip: name above)
     "hosts": {},        # ip: name  (devices whose presence to show)
     "network": {"ddns_host": "", "pi_ip": "", "setup_port": 8089,
                 "pihole_password_file": "/etc/housedash/pihole_password", "pihole_api": "http://127.0.0.1/api", "wg_interface": "wg0"},
