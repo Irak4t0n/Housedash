@@ -17,7 +17,7 @@ Everything is configured from a settings page on the Pi (no files to edit), and 
 | **Pi-hole** | Pi-hole v6 API | blocked %, totals, top blocked, a Pac-Man "ghosts eaten" counter |
 | **Printers** | Anycubic LAN mode (MQTT) | state, nozzle/bed/chamber, file, layer, progress, time left; lifetime / this-week / hours counters |
 | **VPN** | `wg show` | WireGuard peers, green when they've handshaken recently |
-| **Lights** | WiZ UDP | on/off + brightness per bulb |
+| **Lights** | WiZ UDP + the Pi's own Bluetooth | on/off + brightness per WiZ bulb; on/off/colour for Zengge / Magic Home (`LEDnetWF`) and Magic Lantern (`MELK`, `ELK-BLEDOM`) Bluetooth strips, bars and bulbs - no app, no cloud |
 | **Internet · Pi** | ping, ipify, DNS | latency/loss every 10 s, public IP vs your DDNS name, Pi temp/load/mem/uptime |
 | **Websites** | HTTPS | up/down, response time, **TLS days left**, a **defacement fingerprint** of the home page; WordPress sites can add pending comments + Fluent Forms lead counts |
 | **Calendar** | any iCal/ICS URL | today + tomorrow from Google / iCloud / Outlook secret iCal links — no OAuth, no Google Cloud project |
@@ -56,6 +56,9 @@ Re-run `install.sh` to update after a `git pull`.
 
 ### Phone notifications
 The settings page's **notify** section shows a private topic it minted for you. Install the ntfy app (Android/iOS), subscribe to that topic on `ntfy.sh` (or point `server` at your own ntfy), hit *Send a test*. Done — works on any network, no VPN needed. Don't share the topic: anyone with it can post to your phone.
+
+### Bluetooth lights (Zengge, Magic Home, Magic Lantern)
+Those cheap LED strips, light bars and bulbs that pair over Bluetooth instead of Wi-Fi work too, driven by the Pi's own radio (any Pi with built-in Bluetooth). Power them on, open the settings page -> **lights** -> *Scan for lights*, give each controller a name and Save. They show in the Lights card with on/off, join *all on / all off*, and the nobody-home rule turns them off with the WiZ bulbs. `housedash-blescan.timer` re-scans every 5 min so the card knows which ones are in range (~10 m). The phone app can't be connected at the same time as the Pi - close it if a command doesn't land. CLI for scripting: `/opt/housedash/venv/bin/python /opt/housedash/blelights.py color <mac> 255 40 0 60`.
 
 ### Optional: recursive DNS with Unbound
 `sudo pi/extras/unbound-setup.sh` installs Unbound on `127.0.0.1#5335`, verifies it resolves and validates DNSSEC, then points Pi-hole at it — no upstream resolver sees your queries any more. The collector watches it; if Unbound stops answering, Pi-hole is switched back to Quad9 automatically and you get a push. `--undo` reverts.
@@ -102,6 +105,7 @@ pi/speedtest.py  hourly       speedtest-cli history + sparkline (timer)
 pi/flight.py                  FAA / SWPC / Open-Meteo / NHC / NWS-marine helpers used by outdoors.py
 pi/notify.py                  ntfy push + local notification log
 pi/wizctl.py                  WiZ bulb control (used by the API and the away rule)
+pi/blelights.py               Bluetooth LED controllers (Zengge/LEDnetWF, Magic Lantern/MELK) via bleak; scan + on/off/colour CLI
 pi/setup.py      :8089        settings page + /api (wake, light, lights, notify test) -> /etc/housedash/config.json
 pi/hdconfig.py                defaults + deep-merge; every service re-reads config each loop
 pi/web/index.html             the page; polls state.json, auto-scrolls overflowing cards, runs the wire and TV remote mode

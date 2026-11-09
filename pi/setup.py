@@ -2,7 +2,7 @@
 """House dashboard setup — http://<pi>:8089 (LAN + VPN). Edits /etc/housedash/config.json
 (everything the dashboard shows and how often) plus the two write-only secrets (calendar feeds, WordPress
 app password). Runs as root so it can write /etc/housedash and restart collectors. Secrets never echo back."""
-import base64, copy, html, json, os, re, secrets, socket, subprocess, urllib.parse, urllib.request
+import base64, copy, html, json, os, re, secrets, socket, subprocess, time, urllib.parse, urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import hdconfig, notify, wizctl
 
@@ -64,6 +64,27 @@ def field(label, inner): return f"<div><label>{label}</label>{inner}</div>"
 def dict_table(c, key, k_label, v_label, note):
     rows = "".join(f"<tr><td class=k>{inp(f'k{i}', k)}</td><td>{inp(f'v{i}', v)}</td></tr>" for i, (k, v) in enumerate(c[key].items()))
     return f"<p class=dim>{note} Clear a name to remove that row.</p><table><tr><th>{k_label}</th><th>{v_label}</th></tr>{rows}<tr><td class=k>{inp('newk','')}</td><td>{inp('newv','')}</td></tr></table><button>Save</button>"
+
+def ble_table(c):
+    """Bluetooth controllers: what the last scan saw merged with what's named in config. Blank name = not used."""
+    conf = {m.upper(): (v if isinstance(v, dict) else {"name": v}) for m, v in (c.get("ble_lights") or {}).items()}
+    seen = ble_seen()
+    rows = ""
+    for mac in sorted(set(seen) | set(conf)):
+        l, v = seen.get(mac, {}), conf.get(mac, {})
+        if l.get("rssi") is not None: sig = f"{l['rssi']} dBm"
+        elif l.get("last"): sig = f"<span class=bad>last seen {int((time.time() - l['last']) / 60)} min ago</span>"
+        else: sig = "<span class=bad>not seen yet</span>"
+        rows += (f"<tr><td class=k><code>{E(mac)}</code></td><td class=dim>{E(l.get('name') or v.get('kind') or '')}</td><td class=dim>{sig}</td>"
+                 f"<td>{inp('ble_' + mac.replace(':', ''), v.get('name', ''))}</td>"
+                 f"<td class=c><button class=x formaction='/bleblink?mac={E(mac)}' formmethod=post title='flash it red / blue / white so you can see which one this is'>blink</button></td></tr>")
+    rows = rows or "<tr><td colspan=5 class=dim>nothing found yet - power the lights on and press Scan</td></tr>"
+    return (f"<h2>Bluetooth lights</h2><p class=dim>Zengge / Magic Home (<code>LEDnetWF…</code>) and Magic Lantern (<code>MELK-…</code>, <code>ELK-BLEDOM</code>) strips, bars and bulbs. "
+            f"The Pi's own Bluetooth talks to them, so they need no app and no cloud - but they must have power and be within ~10 m of the Pi. "
+            f"Name the ones you want on the dashboard; leave a name blank to ignore that controller. The app can't be connected at the same time - close it if a command doesn't land.</p>"
+            f"<p class=dim>A light that never shows up is usually still connected to the phone app (a connected controller stops advertising) - force-close Zengge / Magic Lantern and scan again. Use <b>blink</b> to see which physical light a row is.</p>"
+            f"<table><tr><th>controller</th><th>advertised</th><th>signal</th><th>name on dashboard</th><th></th></tr>{rows}</table>"
+            f"<button>Save</button> <button formaction=/blescan formmethod=post style='background:#1f2a38;color:#fff'>Scan for lights</button>")
 
 def section_html(c, sec):
     if sec == "general":
@@ -149,7 +170,8 @@ def section_html(c, sec):
         haskey = "<span class=ok>✓ signing key saved</span>" if wizctl.signing_key() else "<span class=bad>no signing key yet</span>"
         return (dict_table(c, "lights", "IP", "name", "WiZ bulbs (UDP 38899).")
                 + f"<h2>WiZ signing key</h2><p class=dim>Bulbs on firmware 1.3x+ refuse local on/off commands unless they're signed with your home's key ({haskey}). Get it once: WiZ app → Settings → <b>Integrations</b> → export / 'local integration' → the file contains <code>udp_signing_key</code> (32 hex characters). Paste it here; it's stored root-only and never shown.</p>"
-                f"<div class=row>{field('udp_signing_key', '<input type=password name=wizkey placeholder=\"32 hex characters\" autocomplete=off>')}</div><button formaction=/wizkey formmethod=post>Save key</button>")
+                f"<div class=row>{field('udp_signing_key', '<input type=password name=wizkey placeholder=\"32 hex characters\" autocomplete=off>')}</div><button formaction=/wizkey formmethod=post>Save key</button>"
+                + ble_table(c))
     if sec == "hosts": return dict_table(c, "hosts", "IP", "name", "Devices shown in the Devices card (presence from Pi-hole).")
     if sec == "vpn": return dict_table(c, "wg_names", "tunnel IP", "name", "Names for WireGuard peers by their 10.66.66.x address.")
     if sec == "sites":
@@ -257,6 +279,13 @@ def apply_cfg(sec, d, c):
         w["fly_good_mph"] = num(d, "fg", w["fly_good_mph"], int); w["fly_ok_mph"] = num(d, "fo", w["fly_ok_mph"], int)
         td["station"] = g(d, "ts", td["station"]); td["label"] = g(d, "tl", td["label"]); td["water_temp_station"] = g(d, "ws", td["water_temp_station"])
     elif sec in ("printers", "lights", "hosts"): parse_dict(d, c, sec)
+    if sec == "lights":   # the Bluetooth table lives in the same form
+        kinds = ble_known(c); out = {}
+        for k in d:
+            if k.startswith("ble_") and len(k) == 16:
+                mac = ":".join(k[4:][i:i + 2] for i in range(0, 12, 2)).upper(); name = g(d, k)
+                if name: out[mac] = {"name": name, "kind": kinds.get(mac, "lednetwf")}
+        c["ble_lights"] = out
     elif sec == "vpn": parse_dict(d, c, "wg_names")
     elif sec == "sites":
         sites = []
@@ -287,6 +316,28 @@ def wake(mac):
             except Exception: pass
     s.close()
 
+# ---- Bluetooth LED controllers: everything goes through blelights.py in the venv (bleak lives there) ----
+BLE_PY, BLE_CLI, BLE_JSON = "/opt/housedash/venv/bin/python", "/opt/housedash/blelights.py", "/var/lib/housedash/ble.json"
+
+def ble_seen():
+    try: return {l["mac"].upper(): l for l in json.load(open(BLE_JSON)).get("lights", [])}
+    except Exception: return {}
+
+def ble_known(c):
+    """mac -> kind for every controller that is configured or was seen by the last scan."""
+    out = {m: l.get("kind", "lednetwf") for m, l in ble_seen().items()}
+    for m, v in (c.get("ble_lights") or {}).items():
+        out[m.upper()] = (v.get("kind") if isinstance(v, dict) else None) or out.get(m.upper(), "lednetwf")
+    return out
+
+def ble_scan(seconds=8.0):
+    r = subprocess.run([BLE_PY, BLE_CLI, "scan", str(seconds)], capture_output=True, text=True, timeout=seconds + 30)
+    if r.returncode: raise ValueError((r.stderr.strip().splitlines() or ["scan failed"])[-1][:160])
+    return json.loads(r.stdout)
+
+def ble_run_bg(cmd):
+    if cmd: subprocess.Popen(["bash", "-c", cmd], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
 def api(path, q, c):
     """Actions for the dashboard's phone/PC view. Returns a dict."""
     if path == "/api/wake":
@@ -302,7 +353,25 @@ def api(path, q, c):
         return {"ok": "error" not in r, "ip": ip, "result": r}
     if path == "/api/lights":
         act = q.get("action", "off"); dim = q.get("dim")
-        wizctl.all_lights(c["lights"], act == "on", int(dim) if dim else None); return {"ok": True, "all": act}
+        wizctl.all_lights(c["lights"], act == "on", int(dim) if dim else None)
+        ble_run_bg(" ; ".join(f"{BLE_PY} {BLE_CLI} {'on' if act == 'on' else 'off'} {m} {k}" for m, k in ble_known(c).items()))
+        return {"ok": True, "all": act}
+    if path == "/api/blelight":
+        mac = (q.get("mac") or "").upper(); known = ble_known(c)
+        if mac not in known: raise ValueError("unknown bluetooth light - scan first")
+        act = q.get("action", "on"); kind = known[mac]
+        if act in ("on", "off"): args = [act, mac, kind]
+        elif act == "color":
+            rgb = (q.get("rgb") or "ffffff").lstrip("#"); r, g, b = (int(rgb[i:i + 2], 16) for i in (0, 2, 4))
+            args = ["color", mac, str(r), str(g), str(b), str(int(q.get("bright", 100))), kind]
+        elif act == "bright": args = ["bright", mac, str(int(q.get("bright", 100))), kind]
+        elif act == "white": args = ["white", mac, str(int(q.get("bright", 100))), kind]
+        elif act == "blink": args = ["blink", mac, kind]
+        else: raise ValueError("action must be on, off, color, bright, white or blink")
+        r = subprocess.run([BLE_PY, BLE_CLI, *args], capture_output=True, text=True, timeout=60)
+        return {"ok": r.returncode == 0, "mac": mac, "action": act, "err": (r.stderr.strip().splitlines() or [""])[-1][:160] if r.returncode else ""}
+    if path == "/api/blescan":
+        return {"ok": True, "lights": ble_scan(float(q.get("seconds", 8)))}
     if path == "/api/notify/test":
         ok = notify.send("test", "House dashboard", "test notification - it works", tags=["tada"]); return {"ok": ok, "sent": ok}
     raise ValueError("unknown api")
@@ -349,6 +418,12 @@ class H(BaseHTTPRequestHandler):
                     if res: test = ip; break
                 ok = ("error" not in wizctl.set_state(test, on=res.get("state", True))) if test else True
                 msg = f"<div class='msg {'ok' if ok else 'bad'}'>{'✓ key saved and a signed command was accepted by ' + E(test) if ok else '✗ key saved, but the first bulb still rejected a signed command - double-check the key (32 hex chars from the WiZ export)'}</div>"
+            elif p.path == "/bleblink":
+                res = api("/api/blelight", {"mac": q.get("mac"), "action": "blink"}, hdconfig.load())
+                msg = f"<div class='msg {'ok' if res['ok'] else 'bad'}'>{'blinked ' + E(res['mac']) + ' - red, blue, then white' if res['ok'] else 'could not reach ' + E(str(q.get('mac'))) + ': ' + E(res['err'] or 'out of range or the app is connected to it')}</div>"
+            elif self.path == "/blescan":
+                found = ble_scan(10)
+                msg = f"<div class='msg ok'>scan done - {len(found)} Bluetooth light controller(s) in range. Name them under Lights.</div>" if found else "<div class='msg bad'>scan found nothing - make sure the lights have power, are within ~10 m, and their app is closed.</div>"
             elif self.path == "/cal/remove":
                 write_cals(keep=[x for x in cals() if x != g(d, "name")]); msg = f"<div class='msg ok'>removed {E(g(d, 'name'))}</div>"
             elif self.path == "/wp":

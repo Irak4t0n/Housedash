@@ -60,6 +60,8 @@ DEFAULTS = {
     "printers": {},     # ip: name  (Anycubic printers in LAN mode)
     "lights": {},       # ip: name  (WiZ bulbs)
     "lights_by_mac": {},   # mac: name  (optional; names from the WiZ app export win over the ip: name above)
+    "ble_lights": {},   # mac: {"name","kind"}  Bluetooth controllers the Pi drives itself - Zengge/Magic Home (LEDnetWF*) and
+                        # Magic Lantern (MELK-*/ELK-BLEDOM). Found by "Scan" on the settings page; kind is lednetwf or elk.
     "hosts": {},        # ip: name  (devices whose presence to show)
     "network": {"ddns_host": "", "pi_ip": "", "setup_port": 8089,
                 "pihole_password_file": "/etc/housedash/pihole_password", "pihole_api": "http://127.0.0.1/api", "wg_interface": "wg0"},

@@ -216,16 +216,44 @@ def dns_guard():
         return {"ok": True, "upstream": "fallback"}
     return {"ok": True, "upstream": "unbound", "healthy": good}
 
+# ---- Bluetooth LED controllers (Zengge / Magic Lantern) - driven by blelights.py in the venv ----
+BLE_PY, BLE_CLI, BLE_JSON = "/opt/housedash/venv/bin/python", "/opt/housedash/blelights.py", "/var/lib/housedash/ble.json"
+
+def ble(cfg):
+    """Configured controllers merged with the last scan (housedash-blescan.timer writes ble.json every few minutes).
+    No state readback - these controllers don't report on/off - so the card shows name + in range + signal."""
+    conf = cfg.get("ble_lights", {}) or {}
+    try:
+        d = json.load(open(BLE_JSON)); seen = {l["mac"].upper(): l for l in d.get("lights", [])}; t = d.get("t", 0)
+    except Exception:
+        seen, t = {}, 0
+    out = []
+    for mac in sorted(set(seen) | {m.upper() for m in conf}):
+        c = conf.get(mac) or conf.get(mac.lower()) or {}
+        if isinstance(c, str): c = {"name": c}
+        l = seen.get(mac, {})
+        out.append({"mac": mac, "name": c.get("name") or l.get("name") or mac, "kind": c.get("kind") or l.get("kind") or "lednetwf",
+                    "rssi": l.get("rssi"), "seen": time.time() - (l.get("last") or 0) < 1200, "named": bool(c.get("name"))})   # in range = advertised within 20 min
+    return {"ok": True, "lights": out, "scanned": t}
+
+def ble_all(on, lights):
+    """Fire-and-forget: one background shell walks the controllers in turn (the Pi's radio dislikes parallel connects)."""
+    cmds = [f"{BLE_PY} {BLE_CLI} {'on' if on else 'off'} {l['mac']} {l['kind']}" for l in lights if l.get("seen", True)]
+    if cmds:
+        subprocess.Popen(["bash", "-c", " ; ".join(cmds)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
 # ---- nobody home -> lights off (config rules.lights_off_when_away) ----
 _away_done = False
-def away_rule(cfg, lan_state, wiz_state):
+def away_rule(cfg, lan_state, wiz_state, ble_state=None):
     global _away_done
     r = cfg.get("rules", {})
     if not r.get("lights_off_when_away") or not lan_state.get("ok"): return
+    bl = [l for l in (ble_state or {}).get("lights", []) if l.get("named")]
     if everyone_away(lan_state.get("people", []), int(r.get("away_minutes", 20))):
-        if not _away_done and wiz_state.get("on"):
-            wizctl.all_lights(WIZ, False); _away_done = True
-            notify.send("person_away", "Lights off", f"nobody home for {r.get('away_minutes', 20)} min - turned off {wiz_state['on']} lights", tags=["bulb"])
+        if not _away_done and (wiz_state.get("on") or bl):
+            wizctl.all_lights(WIZ, False); ble_all(False, bl); _away_done = True
+            n = (wiz_state.get("on") or 0) + len(bl)
+            notify.send("person_away", "Lights off", f"nobody home for {r.get('away_minutes', 20)} min - turned off {n} lights", tags=["bulb"])
     else:
         _away_done = False
 
@@ -316,8 +344,8 @@ def main():
         state = {"cfg": pub, "ts": int(time.time()), "pihole": pihole(), "wg": wireguard(), "lan": lan(),
                  "wiz": wiz(), "printers": printers(), "sys": system(), "out": outdoors(),
                  "sites": sites(), "cal": calendar(), "ticker": ticker(), "speed": speed(), "security": security(),
-                 "power": power(cfg), "notify_log": notify.recent(12), "dns": dns_guard()}
-        away_rule(cfg, state["lan"], state["wiz"])
+                 "power": power(cfg), "notify_log": notify.recent(12), "dns": dns_guard(), "ble": ble(cfg)}
+        away_rule(cfg, state["lan"], state["wiz"], state["ble"])
         tmp = OUT + ".tmp"
         with open(tmp, "w") as f: json.dump(state, f)
         os.replace(tmp, OUT)

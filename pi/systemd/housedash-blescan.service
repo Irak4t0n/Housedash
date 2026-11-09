@@ -1,0 +1,8 @@
+[Unit]
+Description=House dashboard - scan for Bluetooth light controllers (Zengge / Magic Lantern)
+After=bluetooth.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/housedash/venv/bin/python /opt/housedash/blelights.py scan 8
+StandardOutput=null

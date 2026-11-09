@@ -9,7 +9,7 @@ apt-get install -y -qq python3 python3-venv python3-qrcode jq wireguard-tools ip
 id housedash >/dev/null 2>&1 || useradd -r -s /usr/sbin/nologin housedash
 echo "== files"
 mkdir -p /opt/housedash /var/lib/housedash/sounds /etc/housedash
-install -m755 collect.py outdoors.py sites.py ticker.py gcal.py printers.py setup.py speedtest.py canary.py audit.py /opt/housedash/
+install -m755 collect.py outdoors.py sites.py ticker.py gcal.py printers.py setup.py speedtest.py canary.py audit.py blelights.py /opt/housedash/
 install -m644 hdconfig.py notify.py wizctl.py flight.py /opt/housedash/
 install -m755 extras/unbound-setup.sh /usr/local/sbin/unbound-setup.sh
 install -m755 housedash-add /usr/local/sbin/housedash-add
@@ -21,9 +21,11 @@ fi
 [ -f /var/lib/housedash/sounds/newdevice.mp3 ] || cp /var/lib/housedash/sounds/returned.mp3 /var/lib/housedash/sounds/newdevice.mp3   # placeholder until you drop in your own
 chown -R housedash:housedash /var/lib/housedash
 chmod 755 /etc/housedash
-echo "== python venv (anycubic-lan for printers, icalendar for calendars)"
+echo "== python venv (anycubic-lan for printers, icalendar for calendars, bleak for Bluetooth lights)"
 [ -d /opt/housedash/venv ] || python3 -m venv /opt/housedash/venv
-/opt/housedash/venv/bin/pip install -q --upgrade anycubic-lan icalendar recurring_ical_events
+/opt/housedash/venv/bin/pip install -q --upgrade anycubic-lan icalendar recurring_ical_events bleak
+# Bluetooth lights (Zengge / Magic Lantern): keep the radio powered after boot
+if [ -f /etc/bluetooth/main.conf ]; then grep -q "^AutoEnable=true" /etc/bluetooth/main.conf || { sed -i "s/^#*AutoEnable=.*/AutoEnable=true/" /etc/bluetooth/main.conf; grep -q "^AutoEnable" /etc/bluetooth/main.conf || echo "AutoEnable=true" >> /etc/bluetooth/main.conf; }; rfkill unblock bluetooth 2>/dev/null || true; fi
 echo "== Pi-hole"
 if [ ! -s /etc/housedash/pihole_password ]; then
   echo "The dashboard reads Pi-hole v6 stats through its API. Create an app password in Pi-hole:"
@@ -39,7 +41,7 @@ echo "== services"
 install -m644 systemd/*.service systemd/*.timer /etc/systemd/system/
 systemctl daemon-reload
 for s in collect outdoors sites ticker calendar printers web setup canary; do systemctl enable --now housedash-$s >/dev/null 2>&1 || true; systemctl restart housedash-$s; done
-systemctl enable --now housedash-speedtest.timer housedash-audit.timer >/dev/null 2>&1 || true
+systemctl enable --now housedash-speedtest.timer housedash-audit.timer housedash-blescan.timer >/dev/null 2>&1 || true
 sleep 3
 echo
 echo "Dashboard:  http://$IP:8088      Settings: http://$IP:8089   (phone notifications: Settings > notify)"

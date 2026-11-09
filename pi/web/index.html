@@ -60,6 +60,9 @@ main{display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(
 .bulbs{display:grid;grid-template-columns:repeat(5,1fr);gap:.5vw;margin-top:.3vw}
 .bulb{aspect-ratio:1;border-radius:.5vw;background:var(--line);display:flex;align-items:center;justify-content:center;font-size:.85vw;color:var(--dim);border:1px solid transparent}
 .bulb.on{background:#3a3313;border-color:#7a6a1d;color:#ffd866}
+.bts{display:flex;flex-wrap:wrap;gap:.4vw;margin-top:.5vw}.bt{display:flex;align-items:center;gap:.3vw;border:1px solid var(--line);border-radius:.4vw;padding:.15vw .3vw .15vw .5vw;font-size:.85vw;color:var(--dim)}
+.bt.gone{opacity:.45}.bt .nm{color:var(--fg)}.bt .nm::before{content:"ᛒ ";color:#4cc2ff;font-weight:700}.bt b{cursor:pointer;font-weight:500;padding:.1vw .4vw;border-radius:.3vw;background:var(--line);color:var(--fg)}.bt b:active{transform:scale(.95)}
+body.tv .bt b{display:none}
 .stale{color:var(--bad);font-size:.9vw}
 .hours{display:flex;gap:.4vw;margin-top:.4vw}.hr{flex:1;text-align:center;font-size:.8vw;color:var(--dim)}.hr b{display:block;color:var(--fg);font-size:1.05vw;font-weight:500}.hr i{display:block;height:.35vw;background:var(--acc);border-radius:.2vw;margin-top:.3vw;opacity:.6}
 .tag{display:inline-block;padding:.1vw .5vw;border-radius:.4vw;font-size:.85vw;background:var(--line);color:var(--fg)}
@@ -89,7 +92,7 @@ main{display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(
   <div class="list" id="ph-top" style="margin-top:.6vw"></div></section>
  <section class="card" data-card="pr"><h2><span class="lbltxt">Printers</span></h2><div class="list" id="pr"></div></section>
  <section class="card" data-card="wg"><h2><span class="lbltxt">VPN</span> <span id="wg-err" class="stale"></span></h2><div class="list" id="wg"></div></section>
- <section class="card" data-card="wiz"><h2><span class="lbltxt">Lights</span> <span class="sub" id="wiz-count"></span><span class="ctl"><button class="btn" data-lights="on">all on</button><button class="btn" data-lights="off">all off</button></span></h2><div class="bulbs" id="wiz"></div></section>
+ <section class="card" data-card="wiz"><h2><span class="lbltxt">Lights</span> <span class="sub" id="wiz-count"></span><span class="ctl"><button class="btn" data-lights="on">all on</button><button class="btn" data-lights="off">all off</button></span></h2><div class="bulbs" id="wiz"></div><div class="bts" id="ble"></div></section>
  <section class="card" data-card="net"><h2><span class="lbltxt">Internet · Pi</span> <span id="age" class="sub"></span></h2>
   <div class="list" id="net"></div>
   <div class="pac sub" style="margin-top:auto">ᗧ·····ᗣ <span id="pac-n"></span></div></section>
@@ -145,6 +148,8 @@ function render(s){
  const w=s.wg; if(w.ok){$('wg-err').textContent='';$('wg').innerHTML=w.peers.map(x=>`<div class="row"><span class="n"><i class="dot ${x.up?'ok':''}"></i>${x.name}</span><span class="v">${x.up?'connected':x.handshake_age==null?'never':fmtAge(x.handshake_age)+' ago'}</span></div>`).join('');} else $('wg-err').textContent=w.err;
  const l=s.lan; if(l.ok){$('lan-count').textContent=l.active+' active';$('lan').innerHTML=l.hosts.map(h=>`<div class="row"><span class="n"><i class="dot ${h.online?'ok':''}"></i>${h.name}</span><span class="v">${h.online?'online':h.seen==null?'—':fmtAge(h.seen)}</span></div>`).join('');if(l.recent_new&&l.recent_new.length)alertNew(l.recent_new);if(l.returned&&l.returned.length)alertBack(l.returned,l.quiet);}
  const z=s.wiz; if(z.ok){$('wiz-count').textContent=z.on+' on';$('wiz').innerHTML=z.bulbs.map(b=>`<div class="bulb ${b.on?'on':''}" data-ip="${b.ip}" title="${b.name} · ${b.ip}">${b.on?b.dim+'%':b.on==null?'?':'off'}</div>`).join('');}
+ const bl=(s.ble&&s.ble.lights||[]).filter(l=>l.named); $('ble').innerHTML=bl.map(l=>`<div class="bt ${l.seen?'':'gone'}" title="${l.mac} · ${l.kind} · ${l.seen?l.rssi+' dBm':'not in range'}"><span class="nm">${l.name}</span><b data-ble="${l.mac}" data-act="on">on</b><b data-ble="${l.mac}" data-act="off">off</b></div>`).join('');
+ if(bl.length) $('wiz-count').textContent=(z.ok?z.on+' on · ':'')+bl.filter(l=>l.seen).length+'/'+bl.length+' BT';
  const pr=s.printers; if(pr.ok){$('pr').innerHTML=pr.printers.map(x=>{const c=x.count||{};const cnt=`<span class="v">${c.total||0} prints · ${c.week||0} wk · ${c.hours||0} h</span>`;const st=x.state==='free'?'idle':(x.state||'idle');return x.lan?`<div class="row" style="flex-direction:column;align-items:stretch"><div style="display:flex;justify-content:space-between"><span class="n"><i class="dot ${st==='printing'?'ok':st==='error'?'bad':''}"></i>${x.name} · ${st}</span><span class="v">${x.nozzle}° / ${x.bed}°${x.chamber?' / '+x.chamber+'°':''}</span></div><div style="display:flex;justify-content:space-between"><span class="sub">${st==='printing'||st==='paused'?[x.file,x.progress!=null?x.progress+'%':'',x.layer?'layer '+x.layer+(x.layers?'/'+x.layers:''):'',x.remaining?fmtUp(x.remaining)+' left':x.elapsed?fmtUp(x.elapsed):''].filter(Boolean).join(' · '):(x.err?x.err:'')}</span>${cnt}</div>${st==='printing'||st==='paused'?`<div class="bar"><i style="width:${x.progress}%"></i></div>`:''}</div>`:`<div class="row"><span class="n"><i class="dot"></i>${x.name} <span class="sub">LAN mode off</span></span>${cnt}</div>`}).join('');}
  const y=s.sys, o=s.out||{}, inet=o.internet||{};
  const netRows=[];
@@ -315,6 +320,7 @@ document.addEventListener('click',e=>{
  if(TV) return;
  const b=e.target.closest('.bulb[data-ip]'); if(b){b.style.opacity=.5;act('/api/light?ip='+encodeURIComponent(b.dataset.ip)+'&action=toggle');return;}
  const al=e.target.closest('[data-lights]'); if(al){act('/api/lights?action='+al.dataset.lights);return;}
+ const bb=e.target.closest('b[data-ble]'); if(bb){bb.style.opacity=.5;act('/api/blelight?mac='+encodeURIComponent(bb.dataset.ble)+'&action='+bb.dataset.act).then(()=>bb.style.opacity=1);return;}
  const w=e.target.closest('[data-wake]'); if(w){w.textContent='⏻ sending…';act('/api/wake?name='+encodeURIComponent(w.dataset.wake));return;}
 });
 async function tick(){try{const r=await fetch('state.json?'+Date.now(),{cache:'no-store'});render(await r.json());}catch(e){$('age').textContent='no data';}}
