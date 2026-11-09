@@ -93,6 +93,8 @@ On the TV, enable developer mode (Home x3, Up x2, Right, Left, Right, Left, Righ
 
 ```
 DASH_URL=http://192.168.4.99:8088/roku.png ROKU=<tv-ip> ROKU_PASS=<the password you set> roku/build.sh
+# or on Windows:
+roku\build.ps1 -DashUrl http://192.168.4.99:8088/roku.png -Roku <tv-ip> -RokuPass <the password you set>
 ```
 
 Then Settings -> Screensaver -> **House Dashboard**. No remote interaction on this one (Roku screensavers close on any key), but everything else is there.
