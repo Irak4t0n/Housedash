@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Two full-screen posters: the hidden one loads the next frame, and only when it reports
+     "ready" does it come to the front - so the picture never blinks to black between frames. -->
+<component name="SaverScene" extends="Scene">
+  <interface>
+    <field id="imageUrl" type="string" />
+    <field id="interval" type="integer" value="15" />
+    <field id="isSaver" type="boolean" value="true" />
+  </interface>
+  <children>
+    <Rectangle id="bg" width="1920" height="1080" color="#0b0f14" />
+    <Poster id="a" width="1920" height="1080" loadDisplayMode="scaleToFit" loadWidth="1920" loadHeight="1080" />
+    <Poster id="b" width="1920" height="1080" loadDisplayMode="scaleToFit" loadWidth="1920" loadHeight="1080" visible="false" />
+    <Label id="msg" width="1920" height="1080" horizAlign="center" vertAlign="center" color="#8b98a8" text="" />
+    <Timer id="tick" repeat="true" duration="15" />
+  </children>
+  <script type="text/brightscript" uri="pkg:/components/SaverScene.brs" />
+</component>

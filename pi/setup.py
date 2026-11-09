@@ -96,7 +96,9 @@ def section_html(c, sec):
         return (f"<div class=row>{field('House name (header)', inp('title', c['title']))}{field('Grid columns', inp('cols', c['grid']['columns'], 'number'))}{field('Grid rows', inp('rows', c['grid']['rows'], 'number'))}</div>"
                 f"<h2>Refresh rates (seconds)</h2><div class=row>{field('Page poll', inp('page', iv['page'], 'number'))}{field('Collector (Pi-hole, VPN, devices, lights)', inp('collect', iv['collect'], 'number'))}{field('Internet ping', inp('internet', iv['internet'], 'number'))}"
                 f"{field('Websites', inp('sites', iv['sites'], 'number'))}{field('Weather / tide', inp('outdoors', iv['outdoors'], 'number'))}{field('Wire feeds', inp('ticker', iv['ticker'], 'number'))}</div>"
-                f"<div class=row>{field('Public IP / DDNS hostname to compare', inp('ddns', c['network']['ddns_host']))}{field('Clock time zone (blank = this Pi&#39;s, currently ' + E(_pi_tz()) + ')', inp('tz', c.get('timezone', '')))}</div><button>Save</button>")
+                f"<div class=row>{field('Public IP / DDNS hostname to compare', inp('ddns', c['network']['ddns_host']))}{field('Clock time zone (blank = this Pi&#39;s, currently ' + E(_pi_tz()) + ')', inp('tz', c.get('timezone', '')))}</div>"
+                f"<h2>Roku screensaver</h2><p class=dim>Roku TVs can't run the web page, so the Pi can draw it to a picture every few seconds and a small Roku channel shows that picture as the screensaver (see roku/ in the repo). Costs about a second of CPU per frame.</p>"
+                f"<div class=row><div><label>&nbsp;</label>{chk('roku_on', (c.get('roku') or {}).get('on'))} render /roku.png</div>{field('Every (seconds)', inp('roku_iv', (c.get('roku') or {}).get('interval', 15), 'number'))}</div><button>Save</button>")
     if sec == "cards":
         rows = "".join(f"<tr><td class=c>{chk(f'on{i}', x.get('on', True))}</td><td>{inp(f'label{i}', x.get('label', ''))}</td><td class=n>{inp(f'pos{i}', i + 1, 'number')}</td><td class=c>{chk(f'tall{i}', x.get('tall'))}</td><td class=dim>{x['id']}</td></tr>" for i, x in enumerate(c["cards"]))
         return f"<p class=dim>Tick to show, type a position to reorder, 'tall' spans two rows. {c['grid']['columns']}×{c['grid']['rows']} grid = {c['grid']['columns'] * c['grid']['rows']} slots (tall cards use two).</p><table><tr><th>show</th><th>label</th><th>pos</th><th>tall</th><th>id</th></tr>{rows}</table><button>Save</button>"
@@ -228,6 +230,7 @@ def apply_cfg(sec, d, c):
         tz = g(d, "tz").strip()
         if tz and not os.path.exists("/usr/share/zoneinfo/" + tz): raise ValueError(f"unknown time zone '{tz}' - use an IANA name like America/Chicago")
         c["timezone"] = tz
+        c["roku"] = {"on": on(d, "roku_on"), "interval": max(5, num(d, "roku_iv", 15, int))}
     elif sec == "cards":
         cards = []
         for i, x in enumerate(c["cards"]):

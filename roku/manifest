@@ -1,0 +1,14 @@
+title=House Dashboard
+major_version=1
+minor_version=0
+build_version=1
+mm_icon_focus_hd=pkg:/images/icon_hd.png
+mm_icon_focus_fhd=pkg:/images/icon_fhd.png
+mm_icon_side_hd=pkg:/images/icon_side.png
+splash_screen_hd=pkg:/images/splash.png
+splash_screen_fhd=pkg:/images/splash.png
+splash_color=#0b0f14
+splash_min_time=0
+ui_resolutions=fhd
+screensaver_title=House Dashboard
+screensaver_private=1

@@ -86,6 +86,17 @@ adb shell settings put secure screensaver_components com.irak4t0n.housedash/.Das
 
 Works on Fire OS 7 (32-bit sticks) and Fire OS 8 TVs. Fire TV's own idle timeout (default 5 min) decides when it comes on.
 
+## Roku TVs (screensaver channel)
+Roku can't run the web page, so the Pi draws the dashboard to a PNG instead (`pi/render.py`, same cards, order and grid as the page, about 1 s of CPU per frame) and a tiny sideloaded Roku channel shows it as a screensaver, swapping frames only once the next one has loaded so it never blinks. Turn the renderer on under settings -> general -> *Roku screensaver*; the frame is served at `http://<pi>:8088/roku.png`.
+
+On the TV, enable developer mode (Home x3, Up x2, Right, Left, Right, Left, Right -> Enable installer -> set a password -> restart), then from any machine with bash, zip and curl:
+
+```
+DASH_URL=http://192.168.4.99:8088/roku.png ROKU=<tv-ip> ROKU_PASS=<the password you set> roku/build.sh
+```
+
+Then Settings -> Screensaver -> **House Dashboard**. No remote interaction on this one (Roku screensavers close on any key), but everything else is there.
+
 ## PC tray alert (Windows)
 
 `pc/newdevice-alert.ps1` polls the dashboard and plays the sounds / shows a toast on your desktop. It's a tray icon (right-click: status, mute 1 h, test, open dashboard, quit), launched at logon from your Startup folder with no console window. Set `$Pi` at the top, put your sounds in `pc/sounds/`, double-click `Install HouseDash alert.cmd`. `-Uninstall` removes it.
@@ -105,6 +116,7 @@ pi/speedtest.py  hourly       speedtest-cli history + sparkline (timer)
 pi/flight.py                  FAA / SWPC / Open-Meteo / NHC / NWS-marine helpers used by outdoors.py
 pi/notify.py                  ntfy push + local notification log
 pi/wizctl.py                  WiZ bulb control (used by the API and the away rule)
+pi/render.py                  draws the dashboard to roku.png for the Roku screensaver channel (roku/)
 pi/blelights.py               Bluetooth LED controllers (Zengge/LEDnetWF, Magic Lantern/MELK) via bleak; scan + on/off/colour CLI
 pi/setup.py      :8089        settings page + /api (wake, light, lights, notify test) -> /etc/housedash/config.json
 pi/hdconfig.py                defaults + deep-merge; every service re-reads config each loop
