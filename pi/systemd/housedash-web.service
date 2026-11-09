@@ -1,12 +1,15 @@
 [Unit]
 Description=House dashboard web (static, port 8088)
-After=network-online.target
+After=network-online.target nss-user-lookup.target
+Wants=network-online.target nss-user-lookup.target
+StartLimitIntervalSec=0
 
 [Service]
 User=housedash
 WorkingDirectory=/var/lib/housedash
 ExecStart=/usr/bin/python3 -m http.server 8088 --bind 0.0.0.0
 Restart=always
+RestartSec=5
 Nice=10
 
 [Install]
