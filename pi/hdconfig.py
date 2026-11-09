@@ -60,6 +60,7 @@ DEFAULTS = {
     "printers": {},     # ip: name  (Anycubic printers in LAN mode)
     "lights": {},       # ip: name  (WiZ bulbs)
     "lights_by_mac": {},   # mac: name  (optional; names from the WiZ app export win over the ip: name above)
+    "timezone": "",     # IANA zone for the clock on every screen, e.g. America/Chicago; blank = the Pi's own
     "ble_lights": {},   # mac: {"name","kind"}  Bluetooth controllers the Pi drives itself - Zengge/Magic Home (LEDnetWF*) and
                         # Magic Lantern (MELK-*/ELK-BLEDOM). Found by "Scan" on the settings page; kind is lednetwf or elk.
     "hosts": {},        # ip: name  (devices whose presence to show)

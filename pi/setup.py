@@ -86,13 +86,17 @@ def ble_table(c):
             f"<table><tr><th>controller</th><th>advertised</th><th>signal</th><th>name on dashboard</th><th></th></tr>{rows}</table>"
             f"<button>Save</button> <button formaction=/blescan formmethod=post style='background:#1f2a38;color:#fff'>Scan for lights</button>")
 
+def _pi_tz():
+    try: return open("/etc/timezone").read().strip() or "UTC"
+    except OSError: return "UTC"
+
 def section_html(c, sec):
     if sec == "general":
         iv = c["intervals"]
         return (f"<div class=row>{field('House name (header)', inp('title', c['title']))}{field('Grid columns', inp('cols', c['grid']['columns'], 'number'))}{field('Grid rows', inp('rows', c['grid']['rows'], 'number'))}</div>"
                 f"<h2>Refresh rates (seconds)</h2><div class=row>{field('Page poll', inp('page', iv['page'], 'number'))}{field('Collector (Pi-hole, VPN, devices, lights)', inp('collect', iv['collect'], 'number'))}{field('Internet ping', inp('internet', iv['internet'], 'number'))}"
                 f"{field('Websites', inp('sites', iv['sites'], 'number'))}{field('Weather / tide', inp('outdoors', iv['outdoors'], 'number'))}{field('Wire feeds', inp('ticker', iv['ticker'], 'number'))}</div>"
-                f"<div class=row>{field('Public IP / DDNS hostname to compare', inp('ddns', c['network']['ddns_host']))}</div><button>Save</button>")
+                f"<div class=row>{field('Public IP / DDNS hostname to compare', inp('ddns', c['network']['ddns_host']))}{field('Clock time zone (blank = this Pi&#39;s, currently ' + E(_pi_tz()) + ')', inp('tz', c.get('timezone', '')))}</div><button>Save</button>")
     if sec == "cards":
         rows = "".join(f"<tr><td class=c>{chk(f'on{i}', x.get('on', True))}</td><td>{inp(f'label{i}', x.get('label', ''))}</td><td class=n>{inp(f'pos{i}', i + 1, 'number')}</td><td class=c>{chk(f'tall{i}', x.get('tall'))}</td><td class=dim>{x['id']}</td></tr>" for i, x in enumerate(c["cards"]))
         return f"<p class=dim>Tick to show, type a position to reorder, 'tall' spans two rows. {c['grid']['columns']}×{c['grid']['rows']} grid = {c['grid']['columns'] * c['grid']['rows']} slots (tall cards use two).</p><table><tr><th>show</th><th>label</th><th>pos</th><th>tall</th><th>id</th></tr>{rows}</table><button>Save</button>"
@@ -221,6 +225,9 @@ def apply_cfg(sec, d, c):
         c["title"] = g(d, "title", c["title"]); c["grid"]["columns"] = num(d, "cols", c["grid"]["columns"], int); c["grid"]["rows"] = num(d, "rows", c["grid"]["rows"], int)
         for k in ("page", "collect", "internet", "sites", "outdoors", "ticker"): c["intervals"][k] = num(d, k, c["intervals"][k], int)
         c["network"]["ddns_host"] = g(d, "ddns", c["network"]["ddns_host"])
+        tz = g(d, "tz").strip()
+        if tz and not os.path.exists("/usr/share/zoneinfo/" + tz): raise ValueError(f"unknown time zone '{tz}' - use an IANA name like America/Chicago")
+        c["timezone"] = tz
     elif sec == "cards":
         cards = []
         for i, x in enumerate(c["cards"]):

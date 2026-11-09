@@ -5,7 +5,8 @@ import android.view.KeyEvent;
 import android.webkit.WebView;
 
 /** Screensaver: the dashboard, fullscreen. The remote's ◀ ▶ browse the wire and OK opens a
- *  headline (QR, then the TV browser); BACK or any other key wakes the TV as usual. */
+ *  headline (QR, then the TV browser); ▲ jumps to the Lights card where ◀ ▶ OK toggle lights and
+ *  ▼ leaves; BACK or any other key wakes the TV as usual. */
 public class DashDream extends DreamService {
     private WebView web;
 

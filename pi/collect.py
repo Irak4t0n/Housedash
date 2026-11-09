@@ -336,6 +336,16 @@ def system():
     except Exception as e:
         return {"ok": False, "err": str(e)[:60]}
 
+def timezone(cfg):
+    """IANA zone the page should draw the clock in: config 'timezone', else the Pi's own (TVs often have theirs set wrong)."""
+    tz = (cfg.get("timezone") or "").strip()
+    if tz: return tz
+    try:
+        return open("/etc/timezone").read().strip() or None
+    except OSError:
+        try: return os.path.realpath("/etc/localtime").split("zoneinfo/")[-1]
+        except Exception: return None
+
 def main():
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     while True:
@@ -344,7 +354,7 @@ def main():
         state = {"cfg": pub, "ts": int(time.time()), "pihole": pihole(), "wg": wireguard(), "lan": lan(),
                  "wiz": wiz(), "printers": printers(), "sys": system(), "out": outdoors(),
                  "sites": sites(), "cal": calendar(), "ticker": ticker(), "speed": speed(), "security": security(),
-                 "power": power(cfg), "notify_log": notify.recent(12), "dns": dns_guard(), "ble": ble(cfg)}
+                 "power": power(cfg), "notify_log": notify.recent(12), "dns": dns_guard(), "ble": ble(cfg), "tz": timezone(cfg)}
         away_rule(cfg, state["lan"], state["wiz"], state["ble"])
         tmp = OUT + ".tmp"
         with open(tmp, "w") as f: json.dump(state, f)

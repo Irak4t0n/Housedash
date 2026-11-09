@@ -18,7 +18,9 @@ import android.webkit.WebViewClient;
 
 /** The one WebView both the screensaver and the app share. Loads the dashboard in TV mode,
  *  hides every bit of chrome, retries if the Pi is unreachable, and hands any link that is not
- *  the dashboard itself to the TV's browser (Silk / whatever is installed). */
+ *  the dashboard itself to the TV's browser (Silk / whatever is installed).
+ *  Remote keys go to the page's tvKey(): ◀ ▶ OK browse the wire, ▲/▼ enter/leave the Lights card
+ *  (◀ ▶ pick a light, OK toggles it). A key the page passes on wakes the TV as usual. */
 final class Dash {
     static final String PREFS = "housedash";
     static final String KEY_URL = "url";
@@ -63,6 +65,8 @@ final class Dash {
         switch (code) {
             case KeyEvent.KEYCODE_DPAD_LEFT: return "left";
             case KeyEvent.KEYCODE_DPAD_RIGHT: return "right";
+            case KeyEvent.KEYCODE_DPAD_UP: return "up";        // page: jump into the Lights card
+            case KeyEvent.KEYCODE_DPAD_DOWN: return "down";    // page: leave it again
             case KeyEvent.KEYCODE_DPAD_CENTER:
             case KeyEvent.KEYCODE_ENTER:
             case KeyEvent.KEYCODE_BUTTON_A: return "ok";
