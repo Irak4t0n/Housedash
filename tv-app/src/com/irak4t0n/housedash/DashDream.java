@@ -30,6 +30,15 @@ public class DashDream extends DreamService {
 
     @Override public void onDreamingStopped() {
         super.onDreamingStopped();
-        if (web != null) { web.loadUrl("about:blank"); web.destroy(); web = null; }
+        teardown();
+    }
+
+    @Override public void onDetachedFromWindow() {
+        teardown();   // belt and braces: some firmwares skip onDreamingStopped when the dream is killed
+        super.onDetachedFromWindow();
+    }
+
+    private void teardown() {
+        if (web != null) { web.loadUrl("about:blank"); web.onPause(); web.pauseTimers(); web.destroy(); web = null; }
     }
 }

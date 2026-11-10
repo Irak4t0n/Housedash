@@ -22,7 +22,14 @@ public class DashActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
-        if (web != null) web.loadUrl(Dash.tvUrl(this));
+        if (web != null) { web.onResume(); web.resumeTimers(); web.loadUrl(Dash.tvUrl(this)); }
+    }
+
+    /** Off screen (Home pressed, another app in front): stop the page's timers and audio so it can't
+     *  keep polling and playing sounds from the background. */
+    @Override protected void onPause() {
+        if (web != null) { web.loadUrl("about:blank"); web.onPause(); web.pauseTimers(); }
+        super.onPause();
     }
 
     @Override public boolean onKeyDown(int code, KeyEvent e) {

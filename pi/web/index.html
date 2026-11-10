@@ -151,9 +151,10 @@ function alertBack(list,quiet){
 // Browsers refuse audio until the page has been clicked/tapped once (the TV app exempts itself). When a sound is
 // refused, show a small badge; the first click or key anywhere unlocks every sound on the page.
 let soundLocked=false;
-function playSnd(id){const a=$(id); if(!a) return; try{a.currentTime=0; a.play().then(()=>{soundLocked=false;$('mute').classList.remove('show');}).catch(e=>{if(e&&e.name==='NotAllowedError'){soundLocked=true;$('mute').classList.add('show');}});}catch(e){}}
+function playSnd(id){const a=$(id); if(!a||document.hidden) return; try{a.currentTime=0; a.play().then(()=>{soundLocked=false;$('mute').classList.remove('show');}).catch(e=>{if(e&&e.name==='NotAllowedError'){soundLocked=true;$('mute').classList.add('show');}});}catch(e){}}
 function unlockSounds(){ if(!soundLocked) return; ['snd','snd2','snd3'].forEach(id=>{const a=$(id); if(a){a.muted=true; a.play().then(()=>{a.pause();a.currentTime=0;a.muted=false;}).catch(()=>{a.muted=false;});}}); soundLocked=false; $('mute').classList.remove('show'); }
 document.addEventListener('pointerdown',unlockSounds,true); document.addEventListener('keydown',unlockSounds,true);
+document.addEventListener('visibilitychange',()=>{ if(document.hidden) ['snd','snd2','snd3'].forEach(id=>{const a=$(id); if(a&&!a.paused){a.pause();a.currentTime=0;}}); });   // never make noise from a background tab / paused TV app
 // Pac-Man eats an ad: when Pi-hole's blocked count goes up, chomp through the dots and play nom.mp3 (rate-limited; config alerts.*)
 let lastBlocked=null, lastNom=0, chompTimer=null;
 function nom(blocked,quiet){
