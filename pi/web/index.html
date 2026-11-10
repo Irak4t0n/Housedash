@@ -76,7 +76,7 @@ body.tv .bt b{display:none}
 .tip{font-size:.9vw;color:var(--acc);margin-top:.4vw}
 #alert{position:fixed;left:50%;top:2vh;transform:translateX(-50%);background:#3a1515;border:1px solid var(--bad);color:#fff;padding:1vw 2vw;border-radius:1vw;font-size:1.4vw;display:none;z-index:9;box-shadow:0 .5vw 2vw #000a}
 #alert.show{display:block}
-.pac{font-size:2vw;letter-spacing:-.1em}
+.pac{font-size:2vw;letter-spacing:-.1em}.pac .pm{display:inline-block;color:#ffd866}.pac.chomp .pm{animation:chomp .22s steps(2) infinite}@keyframes chomp{to{transform:scaleY(.35)}}
 </style><style id="tagcss"></style><script src="qrcode.min.js"></script></head><body>
 <div id="alert"></div>
 <header>
@@ -100,7 +100,7 @@ body.tv .bt b{display:none}
  <section class="card" data-card="wiz"><h2><span class="lbltxt">Lights</span> <span class="sub" id="wiz-count"></span><span class="ctl"><button class="btn" data-lights="on">all on</button><button class="btn" data-lights="off">all off</button></span></h2><div class="list"><div class="bulbs" id="wiz"></div><div class="bts" id="ble"></div></div></section>
  <section class="card" data-card="net"><h2><span class="lbltxt">Internet · Pi</span> <span id="age" class="sub"></span></h2>
   <div class="list" id="net"></div>
-  <div class="pac sub" style="margin-top:auto">ᗧ·····ᗣ <span id="pac-n"></span></div></section>
+  <div class="pac sub" style="margin-top:auto"><span class="pm">ᗧ</span><span id="pac-dots">·····</span>ᗣ <span id="pac-n"></span></div></section>
  <section class="card" data-card="sites"><h2><span class="lbltxt">Websites</span> <span class="sub" id="site-sum"></span></h2><div class="list" id="sites"></div></section>
  <section class="card" data-card="cal"><h2><span class="lbltxt">Calendar</span> <span class="sub" id="cal-sum"></span></h2><div class="list" id="cal"></div></section>
  <section class="card" data-card="flight"><h2><span class="lbltxt">Flight brief</span> <span id="fl-verdict"></span></h2><div class="list" id="flight"></div></section>
@@ -112,6 +112,7 @@ body.tv .bt b{display:none}
 <div id="wirepanel"><div class="wp-head"><span>THE WIRE · tap a headline to open it</span><button id="wireclose">close</button></div><div id="wirelist"></div></div>
 <audio id="snd" preload="auto"><source src="sounds/newdevice.mp3" type="audio/mpeg"><source src="sounds/newdevice.ogg" type="audio/ogg"></audio>
 <audio id="snd2" preload="auto"><source src="sounds/returned.mp3" type="audio/mpeg"><source src="sounds/returned.ogg" type="audio/ogg"></audio>
+<audio id="snd3" preload="auto"><source src="sounds/nom.mp3" type="audio/mpeg"></audio>
 <script>
 const $=id=>document.getElementById(id);
 const fmtAge=s=>s==null?'never':s<60?s+'s':s<3600?Math.floor(s/60)+'m':s<86400?Math.floor(s/3600)+'h':Math.floor(s/86400)+'d';
@@ -145,12 +146,24 @@ function alertBack(list,quiet){
  if(!quiet&&A.sound_return!==false){try{const a=$('snd2');a.currentTime=0;a.play().catch(()=>{});}catch(e){}}
  setTimeout(()=>{$('alert').classList.remove('show');$('alert').style.background='';$('alert').style.borderColor='';},(+A.banner_return_s||12)*1000);
 }
+// Pac-Man eats an ad: when Pi-hole's blocked count goes up, chomp through the dots and play nom.mp3 (rate-limited; config alerts.*)
+let lastBlocked=null, lastNom=0, chompTimer=null;
+function nom(blocked,quiet){
+ const A=(CFG&&CFG.alerts)||{}, prev=lastBlocked; lastBlocked=blocked;
+ if(prev==null||blocked<=prev||A.sound_pacman===false) return;
+ if(quiet&&!A.pacman_in_quiet) return;
+ const gap=(A.pacman_gap_s==null?60:+A.pacman_gap_s)*1000; if(Date.now()-lastNom<gap) return; lastNom=Date.now();
+ try{const a=$('snd3');a.currentTime=0;a.play().catch(()=>{});}catch(e){}
+ const pac=document.querySelector('.pac'), dots=$('pac-dots'); if(!pac||!dots) return;
+ pac.classList.add('chomp'); clearInterval(chompTimer); let n=5; dots.textContent='·····';
+ chompTimer=setInterval(()=>{n--; dots.textContent='·'.repeat(Math.max(n,0))+' '.repeat(5-Math.max(n,0)); if(n<=0){clearInterval(chompTimer);setTimeout(()=>{pac.classList.remove('chomp');dots.textContent='·····';},500);}},500);
+}
 function render(s){
  if(s.cfg) applyCfg(s.cfg);
  if(s.tz&&s.tz!==TZ){TZ=s.tz;clock();}
  const now=Math.floor(Date.now()/1000), age=now-s.ts; $('age').textContent=age>120?'stale '+fmtAge(age):'';
  const p=s.pihole; if(p.ok){$('ph-pct').textContent=p.pct+'%';$('ph-blocked').textContent=p.blocked.toLocaleString();$('ph-total').textContent=p.total.toLocaleString();$('ph-clients').textContent=p.clients;$('ph-bar').style.width=p.pct+'%';$('ph-err').textContent='';
-   $('ph-top').innerHTML=p.top_blocked.slice(0,4).map(([d,c])=>`<div class="row"><span class="n">${d}</span><span class="v">${c}</span></div>`).join('');$('pac-n').textContent=p.blocked.toLocaleString()+' ghosts today';}
+   $('ph-top').innerHTML=p.top_blocked.slice(0,4).map(([d,c])=>`<div class="row"><span class="n">${d}</span><span class="v">${c}</span></div>`).join('');$('pac-n').textContent=p.blocked.toLocaleString()+' ghosts today';nom(p.blocked,s.lan&&s.lan.quiet);}
  else $('ph-err').textContent=p.err;
  const w=s.wg; if(w.ok){$('wg-err').textContent='';$('wg').innerHTML=w.peers.map(x=>`<div class="row"><span class="n"><i class="dot ${x.up?'ok':''}"></i>${x.name}</span><span class="v">${x.up?'connected':x.handshake_age==null?'never':fmtAge(x.handshake_age)+' ago'}</span></div>`).join('');} else $('wg-err').textContent=w.err;
  const l=s.lan; if(l.ok){$('lan-count').textContent=l.active+' active';$('lan').innerHTML=l.hosts.map(h=>`<div class="row"><span class="n"><i class="dot ${h.online?'ok':''}"></i>${h.name}</span><span class="v">${h.online?'online':h.seen==null?'—':fmtAge(h.seen)}</span></div>`).join('');if(l.recent_new&&l.recent_new.length)alertNew(l.recent_new);if(l.returned&&l.returned.length)alertBack(l.returned,l.quiet);}

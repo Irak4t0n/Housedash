@@ -9,7 +9,8 @@ DEFAULTS = {
     "title": "HOME",
     "intervals": {"collect": 10, "page": 5, "sites": 20, "internet": 10, "outdoors": 600, "ticker": 300},
     "alerts": {"quiet_start": 22, "quiet_end": 7, "return_gap_h": 2, "return_cooldown_h": 6,
-               "sound_new": True, "sound_return": True, "banner_new_s": 20, "banner_return_s": 12},
+               "sound_new": True, "sound_return": True, "banner_new_s": 20, "banner_return_s": 12,
+               "sound_pacman": True, "pacman_gap_s": 60, "pacman_in_quiet": False},   # "nom" when Pi-hole eats an ad, at most every N s
     # card order + visibility; ids are fixed, labels are what the TV shows
     "cards": [
         {"id": "wx", "label": "Weather", "on": True}, {"id": "tide", "label": "Tide", "on": True},

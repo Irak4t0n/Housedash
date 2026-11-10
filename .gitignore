@@ -9,3 +9,4 @@ pc/sounds/newdevice.*
 *.env
 pihole_password
 calendars.txt
+pi/web/sounds/nom.*

@@ -64,7 +64,7 @@ Those cheap LED strips, light bars and bulbs that pair over Bluetooth instead of
 `sudo pi/extras/unbound-setup.sh` installs Unbound on `127.0.0.1#5335`, verifies it resolves and validates DNSSEC, then points Pi-hole at it — no upstream resolver sees your queries any more. The collector watches it; if Unbound stops answering, Pi-hole is switched back to Quad9 automatically and you get a push. `--undo` reverts.
 
 ### Sounds
-`pi/web/sounds/` ships a generated chime (`returned.mp3`). Drop your own `newdevice.mp3` (and optionally `.ogg`) next to it for the new-device alert — the author uses a certain famous battle cry, which is not something to redistribute.
+`pi/web/sounds/` ships a generated chime (`returned.mp3`). Drop your own `newdevice.mp3` (and optionally `.ogg`) next to it for the new-device alert — the author uses a certain famous battle cry, which is not something to redistribute. Drop a `nom.mp3` in the same folder and Pac-Man on the Internet card plays it (and chomps) when Pi-hole eats an ad - rate-limited and quiet-hours aware under settings -> alerts.
 
 ## The TV app (Fire TV / Android TV)
 

@@ -155,7 +155,9 @@ def section_html(c, sec):
         return (f"<div class=row>{field('Quiet hours start (0-23)', inp('qs', a['quiet_start'], 'number'))}{field('Quiet hours end', inp('qe', a['quiet_end'], 'number'))}</div>"
                 f"<div class=row>{field('Device counts as \"back\" after (hours away)', inp('gap', a['return_gap_h'], 'number', '0.5'))}{field('Announce the same device at most every (hours)', inp('cool', a['return_cooldown_h'], 'number', '0.5'))}</div>"
                 f"<div class=row>{field('New-device banner (seconds)', inp('bn', a['banner_new_s'], 'number'))}{field('Returned banner (seconds)', inp('br', a['banner_return_s'], 'number'))}</div>"
-                f"<p>{chk('sn', a['sound_new'])} Leeroy on new device (always, even in quiet hours) &nbsp;&nbsp; {chk('sr', a['sound_return'])} chime on returning device (silent in quiet hours)</p><button>Save</button>")
+                f"<p>{chk('sn', a['sound_new'])} Leeroy on new device (always, even in quiet hours) &nbsp;&nbsp; {chk('sr', a['sound_return'])} chime on returning device (silent in quiet hours)</p>"
+                f"<h2>Pac-Man</h2><p class=dim>The Pi-hole card's Pac-Man chomps and plays <code>sounds/nom.mp3</code> whenever the blocked count goes up - rate-limited, or you'd hear it thirty times a minute.</p>"
+                f"<div class=row><div><label>&nbsp;</label>{chk('sp', a.get('sound_pacman', True))} nom when an ad is eaten</div>{field('At most every (seconds, 0 = every time)', inp('pg', a.get('pacman_gap_s', 60), 'number'))}<div><label>&nbsp;</label>{chk('pq', a.get('pacman_in_quiet', False))} even in quiet hours</div></div><button>Save</button>")
     if sec == "wire":
         t = c["ticker"]
         tags = "".join(f"<tr><td class=k>{inp(f'tag{i}', k)}</td><td><input type=color name='col{i}' value='{E(v)}'></td></tr>" for i, (k, v) in enumerate(t["tags"].items()))
@@ -267,6 +269,7 @@ def apply_cfg(sec, d, c):
         a["return_gap_h"] = num(d, "gap", a["return_gap_h"]); a["return_cooldown_h"] = num(d, "cool", a["return_cooldown_h"])
         a["banner_new_s"] = num(d, "bn", a["banner_new_s"], int); a["banner_return_s"] = num(d, "br", a["banner_return_s"], int)
         a["sound_new"] = on(d, "sn"); a["sound_return"] = on(d, "sr")
+        a["sound_pacman"] = on(d, "sp"); a["pacman_gap_s"] = max(0, num(d, "pg", a.get("pacman_gap_s", 60), int)); a["pacman_in_quiet"] = on(d, "pq")
     elif sec == "wire":
         t = c["ticker"]; t["on"] = on(d, "on"); t["ufc"] = on(d, "ufc"); t["label"] = g(d, "label", t["label"]) or "WIRE"
         t["speed"] = num(d, "speed", t["speed"], int); t["max_items"] = num(d, "max", t["max_items"], int)
