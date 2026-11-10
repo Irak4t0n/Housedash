@@ -61,8 +61,98 @@ def ufc():
             items.append({"tag": "UFC", "src": card, "text": f"{w[0]['athlete']['displayName']} def. {l[0]['athlete']['displayName']}" + (f" · {how}" if how else ""), "ts": ts, "url": link})
     return items[:12]
 
+# ---- league scoreboards (ESPN's public scoreboard JSON): live scores first, then finals, then what's coming up
+LEAGUES = {   # tag: (sport/league path, human link)
+    "NFL": ("football/nfl", "https://www.espn.com/nfl/scoreboard"),
+    "NCAAF": ("football/college-football", "https://www.espn.com/college-football/scoreboard"),
+    "NBA": ("basketball/nba", "https://www.espn.com/nba/scoreboard"),
+    "NCAAB": ("basketball/mens-college-basketball", "https://www.espn.com/mens-college-basketball/scoreboard"),
+    "WNBA": ("basketball/wnba", "https://www.espn.com/wnba/scoreboard"),
+    "MLB": ("baseball/mlb", "https://www.espn.com/mlb/scoreboard"),
+    "NHL": ("hockey/nhl", "https://www.espn.com/nhl/scoreboard"),
+    "MLS": ("soccer/usa.1", "https://www.espn.com/soccer/scoreboard/_/league/usa.1"),
+    "EPL": ("soccer/eng.1", "https://www.espn.com/soccer/scoreboard/_/league/eng.1"),
+    "UCL": ("soccer/uefa.champions", "https://www.espn.com/soccer/scoreboard/_/league/uefa.champions"),
+}
+SPORTS_NEWS = "https://www.espn.com/espn/rss/news"
+DOT = " · "
+_live = [False]   # any game in progress -> the loop refreshes every minute instead of every five
+
+def scoreboard(tag, n=8):
+    path, page = LEAGUES[tag]
+    d = json.loads(get(f"https://site.api.espn.com/apis/site/v2/sports/{path}/scoreboard"))
+    live, final, soon = [], [], []
+    now = time.time()
+    for ev in d.get("events", []):
+        comp = (ev.get("competitions") or [{}])[0]; teams = comp.get("competitors", [])
+        if len(teams) != 2: continue
+        st = (comp.get("status") or ev.get("status") or {}).get("type", {}); state = st.get("state")
+        try: ts = int(datetime.fromisoformat(ev["date"].replace("Z", "+00:00")).timestamp())
+        except Exception: ts = 0
+        away = next((t for t in teams if t.get("homeAway") == "away"), teams[0]); home = next((t for t in teams if t.get("homeAway") == "home"), teams[1])
+        def nm(t):
+            team = t.get("team", {}); rank = (t.get("curatedRank") or {}).get("current")
+            return (f"#{rank} " if rank and rank <= 25 else "") + (team.get("abbreviation") or team.get("shortDisplayName") or "?")
+        link = next((l.get("href") for l in ev.get("links", []) if l.get("href")), page)
+        if state == "pre":
+            if ts - now > 4 * 86400: continue
+            when = datetime.fromtimestamp(ts).strftime("%a %-I:%M %p") if ts else ""
+            tv = next((b for x in comp.get("broadcasts", []) for b in x.get("names", [])), "")
+            soon.append({"tag": tag, "src": "ESPN", "text": f"{nm(away)} @ {nm(home)}{DOT}{when}" + (f"{DOT}{tv}" if tv else ""), "ts": ts, "url": link})
+        else:
+            detail = st.get("shortDetail") or st.get("detail") or ("Final" if state == "post" else "Live")
+            text = f"{nm(away)} {away.get('score', '')}  {nm(home)} {home.get('score', '')}{DOT}{detail}"
+            (live if state == "in" else final).append({"tag": tag, "src": "LIVE" if state == "in" else "ESPN", "text": text, "ts": ts, "url": link})
+    if live: _live[0] = True
+    soon.sort(key=lambda x: x["ts"]); final.sort(key=lambda x: -x["ts"])
+    return (live + final + soon)[:n]
+
+# ---- fun facts: "on this day" from Wikipedia plus a few random facts; cached an hour so the wire isn't a new set every minute
+_facts = {"t": 0, "items": []}
+def facts(n=8):
+    if time.time() - _facts["t"] < 3600 and _facts["items"]: return _facts["items"]
+    out, now = [], datetime.now()
+    try:
+        d = json.loads(get(f"https://api.wikimedia.org/feed/v1/wikipedia/en/onthisday/selected/{now.month:02d}/{now.day:02d}"))
+        grim = re.compile(r"kill|died|death|dead|massacre|war\b|bomb|crash|assassin|murder|attack|disaster|earthquake|derail|shot|execut|genocide|terror|riot|famine|sank|explo|hijack|fire\b", re.I)
+        picks = [e for e in d.get("selected", []) if not grim.search(e.get("text", ""))]   # it's the living-room TV: keep the history light
+        for e in picks[: (n + 1) // 2]:
+            page = (e.get("pages") or [{}])[0]
+            out.append({"tag": "FACT", "src": "On this day", "text": f"On this day in {e.get('year')}: {clean(e.get('text'))}", "ts": 0,
+                        "url": ((page.get("content_urls") or {}).get("desktop") or {}).get("page", "")})
+    except Exception:
+        pass
+    for _ in range(n - len(out)):
+        try:
+            f = json.loads(get("https://uselessfacts.jsph.pl/api/v2/facts/random?language=en", timeout=8))
+            t = clean(f.get("text"))
+            if t and len(t) < 220: out.append({"tag": "FACT", "src": "Fun fact", "text": "Did you know? " + t, "ts": 0, "url": f.get("source_url") or ""})
+        except Exception:
+            break
+    if out: _facts.update(t=time.time(), items=out)
+    return out or _facts["items"]
+
 def build(cfg):
     tk = cfg["ticker"]; by_tag, errs = {}, []
+    _live[0] = False
+    if tk.get("facts", True):
+        try:
+            got = facts(int(tk.get("facts_n", 8)))
+            if got: by_tag["FACT"] = list(got)
+        except Exception as e:
+            errs.append(f"facts: {str(e)[:40]}")
+    lg = tk.get("leagues", {})
+    for tag in LEAGUES:
+        if not lg.get(tag, True): continue
+        try:
+            got = scoreboard(tag, int(tk.get("games_per_league", 8)))
+            if got: by_tag[tag] = got
+        except Exception as e:
+            errs.append(f"{tag}: {str(e)[:40]}")
+    if tk.get("sports_news", True):
+        try: by_tag["SPORTS"] = rss("SPORTS", "ESPN", SPORTS_NEWS, int(tk.get("sports_news_n", 10)))
+        except Exception as e: errs.append(f"sports news: {str(e)[:40]}")
+    scores = set(by_tag) - {"FACT"}   # keep the order scoreboards came in (live, final, upcoming) - don't re-sort those by time
     if tk.get("ufc", True):
         try:
             for it in ufc(): by_tag.setdefault("UFC", []).append(it)
@@ -75,7 +165,8 @@ def build(cfg):
             for it in rss(tag, name, url, n): by_tag.setdefault(tag, []).append(it)
         except Exception as e:
             errs.append(f"{name}: {str(e)[:40]}")
-    for v in by_tag.values(): v.sort(key=lambda x: -x["ts"])
+    for t, v in by_tag.items():
+        if t not in scores or t == "SPORTS": v.sort(key=lambda x: -x["ts"])
     # interleave categories so the ticker keeps changing flavor
     order = list(tk.get("order", [])) + [t for t in by_tag if t not in tk.get("order", [])]
     out, seen = [], set()
@@ -99,7 +190,7 @@ def main():
         tmp = OUT + ".tmp"
         with open(tmp, "w") as f: json.dump(data, f)
         os.replace(tmp, OUT)
-        time.sleep(max(60, int(cfg["intervals"]["ticker"])))
+        time.sleep(60 if _live[0] else max(60, int(cfg["intervals"]["ticker"])))   # games in progress: refresh scores every minute
 
 if __name__ == "__main__":
     main()

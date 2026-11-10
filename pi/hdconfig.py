@@ -38,9 +38,12 @@ DEFAULTS = {
     "marine": {"zone": "GMZ650", "surf_office": "MOB"},   # NWS marine zone + the WFO that issues the surf-zone forecast
     "security": {"canary_ports": [21, 23, 445, 3389, 5900, 1433], "audit_hour": 3, "audit_range": ""},
     "ticker": {
-        "on": True, "speed": 95, "max_items": 70, "ufc": True, "label": "WIRE",
-        "tags": {"UFC": "#ff8a8a", "HACK": "#3ddc84", "ESPORTS": "#d7a6ff", "GAMING": "#4cc2ff", "HN": "#ffb020", "DRONE": "#7fe0ff", "NEWS": "#e6edf3"},
-        "order": ["UFC", "HACK", "ESPORTS", "GAMING", "HN", "DRONE", "NEWS"],
+        "on": True, "speed": 95, "max_items": 140, "ufc": True, "label": "WIRE",
+        # ESPN scoreboards (live scores, finals, upcoming) per league, plus ESPN top headlines as SPORTS
+        "leagues": {"NFL": True, "NCAAF": True, "NBA": True, "NCAAB": True, "WNBA": False, "MLB": True, "NHL": True, "MLS": True, "EPL": True, "UCL": False},
+        "games_per_league": 8, "sports_news": True, "sports_news_n": 10, "facts": True, "facts_n": 8,   # FACT = on-this-day + random fun facts
+        "tags": {"NFL": "#7fb2ff", "NCAAF": "#ffb86b", "NBA": "#ff9f43", "NCAAB": "#f7c873", "WNBA": "#ff8fd1", "MLB": "#8fd3ff", "NHL": "#b8c7d9", "MLS": "#7ee0a1", "EPL": "#c9a6ff", "UCL": "#9db4ff", "SPORTS": "#ff5c5c", "FACT": "#ffe66d", "UFC": "#ff8a8a", "HACK": "#3ddc84", "ESPORTS": "#d7a6ff", "GAMING": "#4cc2ff", "HN": "#ffb020", "DRONE": "#7fe0ff", "NEWS": "#e6edf3"},
+        "order": ["NFL", "SPORTS", "FACT", "NBA", "UFC", "NCAAF", "HACK", "NHL", "MLB", "NCAAB", "ESPORTS", "EPL", "MLS", "ESPORTS", "GAMING", "HN", "DRONE", "NEWS"],
         "feeds": [
             {"on": True, "tag": "UFC", "name": "ESPN MMA", "url": "https://www.espn.com/espn/rss/mma/news", "n": 4},
             {"on": True, "tag": "ESPORTS", "name": "HLTV", "url": "https://www.hltv.org/rss/news", "n": 5},

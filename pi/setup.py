@@ -165,7 +165,8 @@ def section_html(c, sec):
         t = c["ticker"]
         tags = "".join(f"<tr><td class=k>{inp(f'tag{i}', k)}</td><td><input type=color name='col{i}' value='{E(v)}'></td></tr>" for i, (k, v) in enumerate(t["tags"].items()))
         feeds = "".join(f"<tr><td class=c>{chk(f'fon{i}', f.get('on', True))}</td><td class=k>{inp(f'ftag{i}', f.get('tag', 'NEWS'))}</td><td class=k>{inp(f'fname{i}', f['name'])}</td><td>{inp(f'furl{i}', f['url'], 'url')}</td><td class=n>{inp(f'fn{i}', f.get('n', 5), 'number')}</td><td class=c><input type=checkbox name='fdel{i}' title='remove'></td></tr>" for i, f in enumerate(t["feeds"]))
-        return (f"<p>{chk('on', t['on'])} show the wire &nbsp;&nbsp; {chk('ufc', t['ufc'])} UFC results + upcoming card (ESPN)</p>"
+        return (f"<p>{chk('on', t['on'])} show the wire &nbsp;&nbsp; {chk('ufc', t['ufc'])} UFC results + upcoming card (ESPN) &nbsp;&nbsp; {chk('snews', t.get('sports_news', True))} ESPN top sports headlines &nbsp;&nbsp; {chk('facts', t.get('facts', True))} fun facts + on this day</p>"
+                f"<h2>Scoreboards</h2><p class=dim>Live scores (refreshed every minute while a game is on), finals and the next few days of games, straight from ESPN's scoreboards.</p><p>" + ' &nbsp; '.join(chk('lg_' + k, t.get('leagues', {}).get(k, True)) + ' ' + k for k in ('NFL', 'NCAAF', 'NBA', 'NCAAB', 'WNBA', 'MLB', 'NHL', 'MLS', 'EPL', 'UCL')) + f"</p><div class=row>{field('Games per league', inp('gpl', t.get('games_per_league', 8), 'number'))}</div>"
                 f"<div class=row>{field('Label', inp('label', t['label']))}{field('Speed (px/s)', inp('speed', t['speed'], 'number'))}{field('Max items', inp('max', t['max_items'], 'number'))}{field('Category order (comma list)', inp('order', ','.join(t['order'])))}</div>"
                 f"<h2>Feeds</h2><p class=dim>Any RSS/Atom URL. Tag groups items and picks the color; 'n' = how many of that feed's newest items to take. Tick the last column to remove.</p>"
                 f"<table><tr><th>on</th><th>tag</th><th>name</th><th>url</th><th>n</th><th>✕</th></tr>{feeds}<tr><td class=c>{chk('fon_new', True)}</td><td class=k>{inp('ftag_new', '')}</td><td class=k>{inp('fname_new', '')}</td><td>{inp('furl_new', '', 'url')}</td><td class=n>{inp('fn_new', 5, 'number')}</td><td></td></tr></table>"
@@ -275,7 +276,7 @@ def apply_cfg(sec, d, c):
         a["sound_new"] = on(d, "sn"); a["sound_return"] = on(d, "sr")
         a["sound_pacman"] = on(d, "sp"); a["pacman_gap_s"] = max(0, num(d, "pg", a.get("pacman_gap_s", 60), int)); a["pacman_in_quiet"] = on(d, "pq")
     elif sec == "wire":
-        t = c["ticker"]; t["on"] = on(d, "on"); t["ufc"] = on(d, "ufc"); t["label"] = g(d, "label", t["label"]) or "WIRE"
+        t = c["ticker"]; t["on"] = on(d, "on"); t["ufc"] = on(d, "ufc"); t["sports_news"] = on(d, "snews"); t["facts"] = on(d, "facts"); t["leagues"] = {k: on(d, "lg_" + k) for k in ("NFL", "NCAAF", "NBA", "NCAAB", "WNBA", "MLB", "NHL", "MLS", "EPL", "UCL")}; t["games_per_league"] = max(1, num(d, "gpl", t.get("games_per_league", 8), int)); t["label"] = g(d, "label", t["label"]) or "WIRE"
         t["speed"] = num(d, "speed", t["speed"], int); t["max_items"] = num(d, "max", t["max_items"], int)
         t["order"] = [x.strip().upper() for x in g(d, "order", "").split(",") if x.strip()] or t["order"]
         feeds = []
