@@ -81,6 +81,27 @@ def h12(t):   # "18:00" -> "6p"
     try: h, m = map(int, t.split(":")); return f"{h % 12 or 12}{':%02d' % m if m else ''}{'a' if h < 12 else 'p'}"
     except Exception: return t
 
+# ---- Santa (same model as the page: Dec 1 countdown, 26-hour Christmas Eve sweep east -> west, home on the 26th)
+SANTA_STOPS = ["Kiritimati", "Auckland", "Suva", "Sydney", "Melbourne", "Brisbane", "Tokyo", "Seoul", "Manila", "Beijing", "Hong Kong", "Singapore", "Bangkok",
+               "Dhaka", "New Delhi", "Mumbai", "Karachi", "Dubai", "Tehran", "Moscow", "Nairobi", "Istanbul", "Cairo", "Athens", "Johannesburg", "Warsaw", "Rome",
+               "Berlin", "Paris", "Madrid", "Lagos", "London", "Dublin", "Lisbon", "Reykjavík", "Nuuk", "Rio de Janeiro", "Buenos Aires", "Halifax", "Caracas",
+               "New York", "Toronto", "Havana", "Bogotá", "Lima", "Chicago", "Mexico City", "Foley", "Denver", "Phoenix", "Los Angeles", "Vancouver", "Anchorage", "Honolulu"]
+
+def santa_text(cfg):
+    if not (cfg.get("santa") or {}).get("on", True): return None
+    from datetime import timezone
+    now = datetime.now(timezone.utc); y = now.year
+    start = datetime(y, 12, 24, 10, tzinfo=timezone.utc); end = start.timestamp() + 26 * 3600; t = now.timestamp()
+    if t < datetime(y, 12, 1, tzinfo=timezone.utc).timestamp() or t > datetime(y, 12, 26, 12, tzinfo=timezone.utc).timestamp(): return None
+    if t < start.timestamp():
+        s = int(start.timestamp() - t); d, h, m = s // 86400, s % 86400 // 3600, s % 3600 // 60
+        return f"Santa lifts off from the North Pole in {str(d) + 'd ' if d else ''}{h}h {m}m"
+    if t > end: return "Santa is home at the North Pole - 2,300,000,000 gifts delivered. Merry Christmas!"
+    f = (t - start.timestamp()) / (end - start.timestamp()); i = min(len(SANTA_STOPS) - 1, int(f * len(SANTA_STOPS)))
+    nxt = f" -> next {SANTA_STOPS[i + 1]}" if i + 1 < len(SANTA_STOPS) else ""
+    g = f * 2.3e9; gs = f"{g / 1e9:.2f}B" if g >= 1e9 else f"{g / 1e6:.0f}M"
+    return f"Santa is over {SANTA_STOPS[i]}{nxt} · {gs} gifts · {round(f * 100)}% of the route"
+
 _radar = {"t": 0, "img": None, "url": ""}
 def radar_frame(url):
     """First frame of the NWS loop GIF, cached 5 min; None if offline."""
@@ -281,6 +302,8 @@ def render(s, cfg):
     clock = now.strftime("%-I:%M %p").lower(); date = now.strftime("%A, %B %-d")
     d.text((W - 40 - d.textlength(clock, font=F(44, True)), 14), clock, font=F(44, True), fill=FG)
     d.text((W - 40 - d.textlength(date, font=F(20)), 64), date, font=F(20), fill=DIM)
+    st = santa_text(cfg)
+    if st: d.text(((W - d.textlength(st, font=F(17))) / 2, 2), st, font=F(17), fill="#ff8a8a")
     # grid
     cols, rows = int(cfg["grid"]["columns"]), int(cfg["grid"]["rows"])
     top, bottom, gap, pad = 100, H - 70, 14, 18

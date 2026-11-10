@@ -46,6 +46,10 @@ header .clock{font-size:3.2vw;font-weight:300;font-variant-numeric:tabular-nums}
 header .date{color:var(--dim);font-size:1.1vw}
 header .wxnow{font-size:1.6vw;color:var(--fg);display:flex;gap:1.2vw;align-items:baseline}
 header .wxnow b{font-size:2.6vw;font-weight:500}
+/* Santa tracker: lives in the header band so the card grid never changes. Sleigh drifts along the band during the sweep. */
+#santa{position:fixed;left:2vw;right:2vw;top:.15vh;height:1.6vh;pointer-events:none;display:none;font-size:.85vw;line-height:1.6vh;color:var(--dim);white-space:nowrap;z-index:3}#santa.show{display:block}
+#santa .sl{position:absolute;top:0;display:inline-flex;align-items:center;gap:.4vw;left:var(--x,50%);transform:translateX(-50%);transition:left 4s linear}#santa .sl .ico{font-size:1.1vw;line-height:1;display:inline-block;transform:scaleX(-1)}#santa.fly .sl .ico{animation:bob 1.6s ease-in-out infinite}@keyframes bob{50%{transform:scaleX(-1) translateY(-.15vw)}}
+#santa .cap b{color:var(--fg);font-weight:500}#santa .cap i{font-style:normal;color:#ff8a8a}
 main{display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(3,1fr);gap:.9vw;min-height:0}
 .tall{grid-row:span 2}
 .ev{display:flex;gap:.6vw;padding:.3vw 0;border-bottom:1px solid var(--line);font-size:1vw;align-items:baseline}.ev:last-child{border-bottom:0}
@@ -85,6 +89,7 @@ body.tv .bt b{display:none}
  <div><h1 id="title">HOME</h1><div class="date" id="date"></div></div>
  <div class="wxnow" id="wxnow"></div>
  <div class="clock" id="clock">--:--</div>
+ <div id="santa"><span class="sl"><span class="ico">🛷</span><span class="cap" id="santa-cap"></span></span></div>
 </header>
 <main>
  <section class="card" data-card="wx"><h2><span class="lbltxt">Weather</span> <span id="fly"></span></h2>
@@ -155,6 +160,28 @@ function playSnd(id){const a=$(id); if(!a||document.hidden) return; try{a.curren
 function unlockSounds(){ if(!soundLocked) return; ['snd','snd2','snd3'].forEach(id=>{const a=$(id); if(a){a.muted=true; a.play().then(()=>{a.pause();a.currentTime=0;a.muted=false;}).catch(()=>{a.muted=false;});}}); soundLocked=false; $('mute').classList.remove('show'); }
 document.addEventListener('pointerdown',unlockSounds,true); document.addEventListener('keydown',unlockSounds,true);
 document.addEventListener('visibilitychange',()=>{ if(document.hidden) ['snd','snd2','snd3'].forEach(id=>{const a=$(id); if(a&&!a.paused){a.pause();a.currentTime=0;}}); });   // never make noise from a background tab / paused TV app
+// ---- Santa tracker. No API: Christmas Eve is a 26-hour sweep that follows local midnight from UTC+14 west to UTC-10,
+// which is exactly what the big trackers model too. Stops are ordered east -> west; Santa is "over" the stop whose share
+// of the sweep contains the current moment. Season: Dec 1 (countdown) to Dec 26 (home), then it hides itself.
+const SANTA_STOPS=[["Kiritimati",14],["Apia",13],["Auckland",13],["Suva",12],["Nouméa",11],["Sydney",11],["Melbourne",11],["Brisbane",10],["Port Moresby",10],["Tokyo",9],["Seoul",9],["Darwin",9.5],["Manila",8],["Perth",8],["Beijing",8],["Hong Kong",8],["Singapore",8],["Jakarta",7],["Bangkok",7],["Hanoi",7],["Yangon",6.5],["Dhaka",6],["Kathmandu",5.75],["New Delhi",5.5],["Mumbai",5.5],["Karachi",5],["Tashkent",5],["Kabul",4.5],["Dubai",4],["Tehran",3.5],["Moscow",3],["Nairobi",3],["Baghdad",3],["Istanbul",3],["Cairo",2],["Jerusalem",2],["Athens",2],["Johannesburg",2],["Kyiv",2],["Warsaw",1],["Rome",1],["Berlin",1],["Paris",1],["Madrid",1],["Lagos",1],["London",0],["Dublin",0],["Lisbon",0],["Accra",0],["Reykjavík",0],["Praia",-1],["Nuuk",-2],["Rio de Janeiro",-3],["Buenos Aires",-3],["São Paulo",-3],["Halifax",-4],["Caracas",-4],["Santiago",-3],["La Paz",-4],["New York",-5],["Toronto",-5],["Havana",-5],["Bogotá",-5],["Lima",-5],["Chicago",-6],["Mexico City",-6],["Foley",-6],["Denver",-7],["Phoenix",-7],["Los Angeles",-8],["Vancouver",-8],["Anchorage",-9],["Honolulu",-10]];
+function santa(){
+ const el=$('santa'), S=(CFG&&CFG.santa)||{}; if(!el) return;
+ if(S.on===false){el.classList.remove('show');return;}
+ const now=new Date(), y=now.getUTCFullYear();
+ const start=Date.UTC(y,11,24,10,0,0), end=start+26*3600e3;           // 00:00 Dec 25 at UTC+14  ->  00:00 Dec 25 at UTC-10
+ const seasonFrom=Date.UTC(y,11,1), seasonTo=Date.UTC(y,11,26,12);
+ const t=now.getTime(); const dbg=new URLSearchParams(location.search).get('santa'); const tt=dbg?start+(+dbg||0.5)*(end-start):t;
+ if(!dbg&&(t<seasonFrom||t>seasonTo)){el.classList.remove('show');return;}
+ el.classList.add('show'); const cap=$('santa-cap'), sl=el.querySelector('.sl');
+ if(tt<start){ const s=Math.floor((start-tt)/1000), d=Math.floor(s/86400), h=Math.floor(s%86400/3600), m=Math.floor(s%3600/60);
+   cap.innerHTML=`🎄 Santa lifts off from the North Pole in <b>${d?d+'d ':''}${h}h ${m}m</b>`; sl.style.setProperty('--x','50%'); el.classList.remove('fly'); return; }
+ if(tt>end){ cap.innerHTML=`🎅 Santa is home at the North Pole — <b>${(2.3e9).toLocaleString()}</b> gifts delivered. Merry Christmas!`; sl.style.setProperty('--x','50%'); el.classList.remove('fly'); return; }
+ const f=(tt-start)/(end-start), i=Math.min(SANTA_STOPS.length-1,Math.floor(f*SANTA_STOPS.length)), next=SANTA_STOPS[i+1];
+ const gifts=Math.round(f*2.3e9), g=gifts>=1e9?(gifts/1e9).toFixed(2)+'B':(gifts/1e6).toFixed(0)+'M';
+ cap.innerHTML=`🎅 Santa is over <b>${SANTA_STOPS[i][0]}</b>${next?` → next <b>${next[0]}</b>`:''} · <i>${g}</i> gifts · ${Math.round(f*100)}% of the route`;
+ sl.style.setProperty('--x',(8+f*84)+'%'); el.classList.add('fly');   // drifts across the header as the night goes on
+}
+setInterval(santa,30000);
 // Pac-Man eats an ad: when Pi-hole's blocked count goes up, chomp through the dots and play nom.mp3 (rate-limited; config alerts.*)
 let lastBlocked=null, lastNom=0, chompTimer=null;
 function nom(blocked,quiet){
@@ -170,6 +197,7 @@ function nom(blocked,quiet){
 function render(s){
  if(s.cfg) applyCfg(s.cfg);
  if(s.tz&&s.tz!==TZ){TZ=s.tz;clock();}
+ santa();
  const now=Math.floor(Date.now()/1000), age=now-s.ts; $('age').textContent=age>120?'stale '+fmtAge(age):'';
  const p=s.pihole; if(p.ok){$('ph-pct').textContent=p.pct+'%';$('ph-blocked').textContent=p.blocked.toLocaleString();$('ph-total').textContent=p.total.toLocaleString();$('ph-clients').textContent=p.clients;$('ph-bar').style.width=p.pct+'%';$('ph-err').textContent='';
    $('ph-top').innerHTML=p.top_blocked.slice(0,4).map(([d,c])=>`<div class="row"><span class="n">${d}</span><span class="v">${c}</span></div>`).join('');$('pac-n').textContent=p.blocked.toLocaleString()+' ghosts today';nom(p.blocked,s.lan&&s.lan.quiet);}

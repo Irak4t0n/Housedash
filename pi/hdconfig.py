@@ -62,6 +62,7 @@ DEFAULTS = {
     "lights": {},       # ip: name  (WiZ bulbs)
     "lights_by_mac": {},   # mac: name  (optional; names from the WiZ app export win over the ip: name above)
     "timezone": "",     # IANA zone for the clock on every screen, e.g. America/Chicago; blank = the Pi's own
+    "santa": {"on": True},   # Santa tracker in the header band every December (countdown, Christmas Eve sweep, home on the 26th); never moves a card
     "roku": {"on": False, "interval": 15},   # render.py draws the dashboard to /roku.png every N s for the Roku screensaver channel (roku/)
     "ble_lights": {},   # mac: {"name","kind"}  Bluetooth controllers the Pi drives itself - Zengge/Magic Home (LEDnetWF*) and
                         # Magic Lantern (MELK-*/ELK-BLEDOM). Found by "Scan" on the settings page; kind is lednetwf or elk.
