@@ -92,10 +92,13 @@ def santa_text(cfg):
     from datetime import timezone
     now = datetime.now(timezone.utc); y = now.year
     start = datetime(y, 12, 24, 10, tzinfo=timezone.utc); end = start.timestamp() + 26 * 3600; t = now.timestamp()
-    if t < datetime(y, 12, 1, tzinfo=timezone.utc).timestamp() or t > datetime(y, 12, 26, 12, tzinfo=timezone.utc).timestamp(): return None
-    if t < start.timestamp():
-        s = int(start.timestamp() - t); d, h, m = s // 86400, s % 86400 // 3600, s % 3600 // 60
-        return f"Santa lifts off from the North Pole in {str(d) + 'd ' if d else ''}{h}h {m}m"
+    try: tz = ZoneInfo(cfg.get("timezone") or open("/etc/timezone").read().strip())
+    except Exception: tz = timezone.utc
+    nov1, dec1 = datetime(y, 11, 1, tzinfo=tz).timestamp(), datetime(y, 12, 1, tzinfo=tz).timestamp()
+    if t < nov1 or t > datetime(y, 12, 26, 12, tzinfo=timezone.utc).timestamp(): return None
+    def dhm(sec): sec = int(sec); d, h, m = sec // 86400, sec % 86400 // 3600, sec % 3600 // 60; return f"{str(d) + 'd ' if d else ''}{h}h {m}m"
+    if t < dec1: return f"December in {dhm(dec1 - t)} - then the Santa tracker goes live"
+    if t < start.timestamp(): return f"Santa lifts off from the North Pole in {dhm(start.timestamp() - t)}"
     if t > end: return "Santa is home at the North Pole - 2,300,000,000 gifts delivered. Merry Christmas!"
     f = (t - start.timestamp()) / (end - start.timestamp()); i = min(len(SANTA_STOPS) - 1, int(f * len(SANTA_STOPS)))
     nxt = f" -> next {SANTA_STOPS[i + 1]}" if i + 1 < len(SANTA_STOPS) else ""

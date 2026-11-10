@@ -169,12 +169,16 @@ function santa(){
  if(S.on===false){el.classList.remove('show');return;}
  const now=new Date(), y=now.getUTCFullYear();
  const start=Date.UTC(y,11,24,10,0,0), end=start+26*3600e3;           // 00:00 Dec 25 at UTC+14  ->  00:00 Dec 25 at UTC-10
- const seasonFrom=Date.UTC(y,11,1), seasonTo=Date.UTC(y,11,26,12);
+ // midnight Dec 1 / Nov 1 in the house's time zone (TZ from the Pi), not the TV's possibly-wrong one
+ const localMidnight=(mo,day)=>{const guess=Date.UTC(y,mo,day); try{const f=new Intl.DateTimeFormat('en-US',{timeZone:TZ||undefined,hour12:false,year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric'});
+   const p=Object.fromEntries(f.formatToParts(new Date(guess)).map(x=>[x.type,x.value])); const asIf=Date.UTC(+p.year,+p.month-1,+p.day,+p.hour%24,+p.minute); return guess+(guess-asIf);}catch(e){return guess;}};
+ const decFirst=localMidnight(11,1), novFirst=localMidnight(10,1), seasonTo=Date.UTC(y,11,26,12);
  const t=now.getTime(); const dbg=new URLSearchParams(location.search).get('santa'); const tt=dbg?start+(+dbg||0.5)*(end-start):t;
- if(!dbg&&(t<seasonFrom||t>seasonTo)){el.classList.remove('show');return;}
+ if(!dbg&&(t<novFirst||t>seasonTo)){el.classList.remove('show');return;}
  el.classList.add('show'); const cap=$('santa-cap'), sl=el.querySelector('.sl');
- if(tt<start){ const s=Math.floor((start-tt)/1000), d=Math.floor(s/86400), h=Math.floor(s%86400/3600), m=Math.floor(s%3600/60);
-   cap.innerHTML=`🎄 Santa lifts off from the North Pole in <b>${d?d+'d ':''}${h}h ${m}m</b>`; sl.style.setProperty('--x','50%'); el.classList.remove('fly'); return; }
+ const dhm=ms=>{const s=Math.floor(ms/1000), d=Math.floor(s/86400), h=Math.floor(s%86400/3600), m=Math.floor(s%3600/60); return `${d?d+'d ':''}${h}h ${m}m`;};
+ if(tt<decFirst){ cap.innerHTML=`🍂 December in <b>${dhm(decFirst-tt)}</b> — then the Santa tracker goes live`; sl.style.setProperty('--x','50%'); el.classList.remove('fly'); return; }
+ if(tt<start){ cap.innerHTML=`🎄 Santa lifts off from the North Pole in <b>${dhm(start-tt)}</b>`; sl.style.setProperty('--x','50%'); el.classList.remove('fly'); return; }
  if(tt>end){ cap.innerHTML=`🎅 Santa is home at the North Pole — <b>${(2.3e9).toLocaleString()}</b> gifts delivered. Merry Christmas!`; sl.style.setProperty('--x','50%'); el.classList.remove('fly'); return; }
  const f=(tt-start)/(end-start), i=Math.min(SANTA_STOPS.length-1,Math.floor(f*SANTA_STOPS.length)), next=SANTA_STOPS[i+1];
  const gifts=Math.round(f*2.3e9), g=gifts>=1e9?(gifts/1e9).toFixed(2)+'B':(gifts/1e6).toFixed(0)+'M';
