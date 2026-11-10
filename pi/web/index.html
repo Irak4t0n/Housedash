@@ -82,7 +82,7 @@ body.tv .bt b{display:none}
 #alert.show{display:block}
 #mute{position:fixed;right:2vw;bottom:5.5vh;background:var(--card);border:1px solid var(--line);color:var(--dim);padding:.5vw 1vw;border-radius:.8vw;font-size:1vw;display:none;z-index:9;cursor:pointer}#mute.show{display:block}body.tv #mute{display:none}
 .pac{font-size:2vw;letter-spacing:-.1em}.pac .pm{display:inline-block;color:#ffd866}.pac.chomp .pm{animation:chomp .22s steps(2) infinite}@keyframes chomp{to{transform:scaleY(.35)}}
-</style><style id="tagcss"></style><script src="qrcode.min.js"></script></head><body>
+</style><style id="tagcss"></style><script src="qrcode.min.js"></script><script src="santa.js?v=1" defer></script></head><body>
 <div id="alert"></div>
 <div id="mute" title="browsers block sound until you interact with the page once">🔇 tap anywhere for sound</div>
 <header>
@@ -160,31 +160,8 @@ function playSnd(id){const a=$(id); if(!a||document.hidden) return; try{a.curren
 function unlockSounds(){ if(!soundLocked) return; ['snd','snd2','snd3'].forEach(id=>{const a=$(id); if(a){a.muted=true; a.play().then(()=>{a.pause();a.currentTime=0;a.muted=false;}).catch(()=>{a.muted=false;});}}); soundLocked=false; $('mute').classList.remove('show'); }
 document.addEventListener('pointerdown',unlockSounds,true); document.addEventListener('keydown',unlockSounds,true);
 document.addEventListener('visibilitychange',()=>{ if(document.hidden) ['snd','snd2','snd3'].forEach(id=>{const a=$(id); if(a&&!a.paused){a.pause();a.currentTime=0;}}); });   // never make noise from a background tab / paused TV app
-// ---- Santa tracker. No API: Christmas Eve is a 26-hour sweep that follows local midnight from UTC+14 west to UTC-10,
-// which is exactly what the big trackers model too. Stops are ordered east -> west; Santa is "over" the stop whose share
-// of the sweep contains the current moment. Season: Dec 1 (countdown) to Dec 26 (home), then it hides itself.
-const SANTA_STOPS=[["Kiritimati",14],["Apia",13],["Auckland",13],["Suva",12],["Nouméa",11],["Sydney",11],["Melbourne",11],["Brisbane",10],["Port Moresby",10],["Tokyo",9],["Seoul",9],["Darwin",9.5],["Manila",8],["Perth",8],["Beijing",8],["Hong Kong",8],["Singapore",8],["Jakarta",7],["Bangkok",7],["Hanoi",7],["Yangon",6.5],["Dhaka",6],["Kathmandu",5.75],["New Delhi",5.5],["Mumbai",5.5],["Karachi",5],["Tashkent",5],["Kabul",4.5],["Dubai",4],["Tehran",3.5],["Moscow",3],["Nairobi",3],["Baghdad",3],["Istanbul",3],["Cairo",2],["Jerusalem",2],["Athens",2],["Johannesburg",2],["Kyiv",2],["Warsaw",1],["Rome",1],["Berlin",1],["Paris",1],["Madrid",1],["Lagos",1],["London",0],["Dublin",0],["Lisbon",0],["Accra",0],["Reykjavík",0],["Praia",-1],["Nuuk",-2],["Rio de Janeiro",-3],["Buenos Aires",-3],["São Paulo",-3],["Halifax",-4],["Caracas",-4],["Santiago",-3],["La Paz",-4],["New York",-5],["Toronto",-5],["Havana",-5],["Bogotá",-5],["Lima",-5],["Chicago",-6],["Mexico City",-6],["Foley",-6],["Denver",-7],["Phoenix",-7],["Los Angeles",-8],["Vancouver",-8],["Anchorage",-9],["Honolulu",-10]];
-function santa(){
- const el=$('santa'), S=(CFG&&CFG.santa)||{}; if(!el) return;
- if(S.on===false){el.classList.remove('show');return;}
- const now=new Date(), y=now.getUTCFullYear();
- const start=Date.UTC(y,11,24,10,0,0), end=start+26*3600e3;           // 00:00 Dec 25 at UTC+14  ->  00:00 Dec 25 at UTC-10
- // midnight Dec 1 / Nov 1 in the house's time zone (TZ from the Pi), not the TV's possibly-wrong one
- const localMidnight=(mo,day)=>{const guess=Date.UTC(y,mo,day); try{const f=new Intl.DateTimeFormat('en-US',{timeZone:TZ||undefined,hour12:false,year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric'});
-   const p=Object.fromEntries(f.formatToParts(new Date(guess)).map(x=>[x.type,x.value])); const asIf=Date.UTC(+p.year,+p.month-1,+p.day,+p.hour%24,+p.minute); return guess+(guess-asIf);}catch(e){return guess;}};
- const decFirst=localMidnight(11,1), novFirst=localMidnight(10,1), seasonTo=Date.UTC(y,11,26,12);
- const t=now.getTime(); const dbg=new URLSearchParams(location.search).get('santa'); const tt=dbg?start+(+dbg||0.5)*(end-start):t;
- if(!dbg&&(t<novFirst||t>seasonTo)){el.classList.remove('show');return;}
- el.classList.add('show'); const cap=$('santa-cap'), sl=el.querySelector('.sl');
- const dhm=ms=>{const s=Math.floor(ms/1000), d=Math.floor(s/86400), h=Math.floor(s%86400/3600), m=Math.floor(s%3600/60); return `${d?d+'d ':''}${h}h ${m}m`;};
- if(tt<decFirst){ cap.innerHTML=`🍂 December in <b>${dhm(decFirst-tt)}</b> — then the Santa tracker goes live`; sl.style.setProperty('--x','50%'); el.classList.remove('fly'); return; }
- if(tt<start){ cap.innerHTML=`🎄 Santa lifts off from the North Pole in <b>${dhm(start-tt)}</b>`; sl.style.setProperty('--x','50%'); el.classList.remove('fly'); return; }
- if(tt>end){ cap.innerHTML=`🎅 Santa is home at the North Pole — <b>${(2.3e9).toLocaleString()}</b> gifts delivered. Merry Christmas!`; sl.style.setProperty('--x','50%'); el.classList.remove('fly'); return; }
- const f=(tt-start)/(end-start), i=Math.min(SANTA_STOPS.length-1,Math.floor(f*SANTA_STOPS.length)), next=SANTA_STOPS[i+1];
- const gifts=Math.round(f*2.3e9), g=gifts>=1e9?(gifts/1e9).toFixed(2)+'B':(gifts/1e6).toFixed(0)+'M';
- cap.innerHTML=`🎅 Santa is over <b>${SANTA_STOPS[i][0]}</b>${next?` → next <b>${next[0]}</b>`:''} · <i>${g}</i> gifts · ${Math.round(f*100)}% of the route`;
- sl.style.setProperty('--x',(8+f*84)+'%'); el.classList.add('fly');   // drifts across the header as the night goes on
-}
+// ---- Santa tracker: all of it (strip text, elf village, Christmas Eve flight map) lives in santa.js
+function santa(){ if(window.SantaTracker) SantaTracker.tick(CFG,TZ,TV); }
 setInterval(santa,30000);
 // Pac-Man eats an ad: when Pi-hole's blocked count goes up, chomp through the dots and play nom.mp3 (rate-limited; config alerts.*)
 let lastBlocked=null, lastNom=0, chompTimer=null;

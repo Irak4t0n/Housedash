@@ -13,7 +13,7 @@ install -m755 collect.py outdoors.py sites.py ticker.py gcal.py printers.py setu
 install -m644 hdconfig.py notify.py wizctl.py flight.py /opt/housedash/
 install -m755 extras/unbound-setup.sh /usr/local/sbin/unbound-setup.sh
 install -m755 housedash-add /usr/local/sbin/housedash-add
-install -m644 web/index.html /var/lib/housedash/
+install -m644 web/index.html web/santa.js /var/lib/housedash/
 install -m644 web/sounds/* /var/lib/housedash/sounds/
 if [ ! -f /var/lib/housedash/qrcode.min.js ]; then
   curl -fsSL -o /var/lib/housedash/qrcode.min.js https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js || echo "  (qrcode.min.js not downloaded - TV QR popups need it; fetch it later)"

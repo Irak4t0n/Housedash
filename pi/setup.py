@@ -97,8 +97,9 @@ def section_html(c, sec):
                 f"<h2>Refresh rates (seconds)</h2><div class=row>{field('Page poll', inp('page', iv['page'], 'number'))}{field('Collector (Pi-hole, VPN, devices, lights)', inp('collect', iv['collect'], 'number'))}{field('Internet ping', inp('internet', iv['internet'], 'number'))}"
                 f"{field('Websites', inp('sites', iv['sites'], 'number'))}{field('Weather / tide', inp('outdoors', iv['outdoors'], 'number'))}{field('Wire feeds', inp('ticker', iv['ticker'], 'number'))}</div>"
                 f"<div class=row>{field('Public IP / DDNS hostname to compare', inp('ddns', c['network']['ddns_host']))}{field('Clock time zone (blank = this Pi&#39;s, currently ' + E(_pi_tz()) + ')', inp('tz', c.get('timezone', '')))}</div>"
-                f"<h2>Santa tracker</h2><p class=dim>Every December the header band gets a sleigh: a countdown to lift-off, then on Christmas Eve Santa's position as he sweeps west with midnight (city, next stop, gifts so far), then 'home' on the 26th. It lives in the header, so the card grid never changes. Preview any time with <code>?santa=0.4</code> on the dashboard URL.</p>"
-                f"<p>{chk('santa', (c.get('santa') or {}).get('on', True))} show the Santa tracker in December</p>"
+                f"<h2>Santa tracker</h2><p class=dim>Every December the header band gets a sleigh: a countdown to lift-off, then on Christmas Eve Santa's position as he sweeps west with midnight (city, next stop, gifts so far), then 'home' on the 26th. It lives in the header, so the card grid never changes. Preview: add <code>?santa=village&amp;santashow=1</code> or <code>?santa=0.4&amp;santashow=1</code> to the dashboard URL; on a PC or phone, click the strip to open the scene.</p>"
+                f"<div class=row><div><label>&nbsp;</label>{chk('santa', (c.get('santa') or {}).get('on', True))} Santa tracker (Nov countdown, then December)</div><div><label>&nbsp;</label>{chk('santa_scene', (c.get('santa') or {}).get('scene', True))} animated scene: elf village, then the flight map on the 24th</div></div>"
+                f"<div class=row>{field('Scene visits every (minutes)', inp('santa_every', (c.get('santa') or {}).get('every_min', 5), 'number'))}{field('...on Christmas Eve every', inp('santa_eve', (c.get('santa') or {}).get('every_min_eve', 3), 'number'))}{field('Stays for (seconds)', inp('santa_show', (c.get('santa') or {}).get('show_s', 30), 'number'))}</div>"
                 f"<h2>Roku screensaver</h2><p class=dim>Roku TVs can't run the web page, so the Pi can draw it to a picture every few seconds and a small Roku channel shows that picture as the screensaver (see roku/ in the repo). Costs about a second of CPU per frame.</p>"
                 f"<div class=row><div><label>&nbsp;</label>{chk('roku_on', (c.get('roku') or {}).get('on'))} render /roku.png</div>{field('Every (seconds)', inp('roku_iv', (c.get('roku') or {}).get('interval', 15), 'number'))}</div><button>Save</button>")
     if sec == "cards":
@@ -235,7 +236,7 @@ def apply_cfg(sec, d, c):
         if tz and not os.path.exists("/usr/share/zoneinfo/" + tz): raise ValueError(f"unknown time zone '{tz}' - use an IANA name like America/Chicago")
         c["timezone"] = tz
         c["roku"] = {"on": on(d, "roku_on"), "interval": max(5, num(d, "roku_iv", 15, int))}
-        c["santa"] = {"on": on(d, "santa")}
+        c["santa"] = {"on": on(d, "santa"), "scene": on(d, "santa_scene"), "every_min": max(1, num(d, "santa_every", 5, int)), "every_min_eve": max(1, num(d, "santa_eve", 3, int)), "show_s": max(10, num(d, "santa_show", 30, int))}
     elif sec == "cards":
         cards = []
         for i, x in enumerate(c["cards"]):
