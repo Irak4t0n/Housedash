@@ -76,9 +76,11 @@ body.tv .bt b{display:none}
 .tip{font-size:.9vw;color:var(--acc);margin-top:.4vw}
 #alert{position:fixed;left:50%;top:2vh;transform:translateX(-50%);background:#3a1515;border:1px solid var(--bad);color:#fff;padding:1vw 2vw;border-radius:1vw;font-size:1.4vw;display:none;z-index:9;box-shadow:0 .5vw 2vw #000a}
 #alert.show{display:block}
+#mute{position:fixed;right:2vw;bottom:5.5vh;background:var(--card);border:1px solid var(--line);color:var(--dim);padding:.5vw 1vw;border-radius:.8vw;font-size:1vw;display:none;z-index:9;cursor:pointer}#mute.show{display:block}body.tv #mute{display:none}
 .pac{font-size:2vw;letter-spacing:-.1em}.pac .pm{display:inline-block;color:#ffd866}.pac.chomp .pm{animation:chomp .22s steps(2) infinite}@keyframes chomp{to{transform:scaleY(.35)}}
 </style><style id="tagcss"></style><script src="qrcode.min.js"></script></head><body>
 <div id="alert"></div>
+<div id="mute" title="browsers block sound until you interact with the page once">🔇 tap anywhere for sound</div>
 <header>
  <div><h1 id="title">HOME</h1><div class="date" id="date"></div></div>
  <div class="wxnow" id="wxnow"></div>
@@ -112,7 +114,7 @@ body.tv .bt b{display:none}
 <div id="wirepanel"><div class="wp-head"><span>THE WIRE · tap a headline to open it</span><button id="wireclose">close</button></div><div id="wirelist"></div></div>
 <audio id="snd" preload="auto"><source src="sounds/newdevice.mp3" type="audio/mpeg"><source src="sounds/newdevice.ogg" type="audio/ogg"></audio>
 <audio id="snd2" preload="auto"><source src="sounds/returned.mp3" type="audio/mpeg"><source src="sounds/returned.ogg" type="audio/ogg"></audio>
-<audio id="snd3" preload="auto"><source src="sounds/nom.mp3" type="audio/mpeg"></audio>
+<audio id="snd3" preload="auto"><source src="sounds/nom.mp3?v=2" type="audio/mpeg"></audio>
 <script>
 const $=id=>document.getElementById(id);
 const fmtAge=s=>s==null?'never':s<60?s+'s':s<3600?Math.floor(s/60)+'m':s<86400?Math.floor(s/3600)+'h':Math.floor(s/86400)+'d';
@@ -130,7 +132,7 @@ function alertNew(list){
  $('alert').textContent=`NEW DEVICE ON THE NETWORK: ${d.ip}  ${d.vendor||d.mac}`;
  $('alert').classList.add('show');
  const A=(CFG&&CFG.alerts)||{};
- if(A.sound_new!==false){try{const a=$('snd');a.currentTime=0;a.play().catch(()=>{});}catch(e){}}
+ if(A.sound_new!==false) playSnd('snd');
  setTimeout(()=>$('alert').classList.remove('show'),(+A.banner_new_s||20)*1000);
 }
 let ret=new Set();
@@ -143,9 +145,15 @@ function alertBack(list,quiet){
  $('alert').textContent=`${d.name} is back (away ${fmtAge(d.away)})`;
  $('alert').classList.add('show');
  const A=(CFG&&CFG.alerts)||{};
- if(!quiet&&A.sound_return!==false){try{const a=$('snd2');a.currentTime=0;a.play().catch(()=>{});}catch(e){}}
+ if(!quiet&&A.sound_return!==false) playSnd('snd2');
  setTimeout(()=>{$('alert').classList.remove('show');$('alert').style.background='';$('alert').style.borderColor='';},(+A.banner_return_s||12)*1000);
 }
+// Browsers refuse audio until the page has been clicked/tapped once (the TV app exempts itself). When a sound is
+// refused, show a small badge; the first click or key anywhere unlocks every sound on the page.
+let soundLocked=false;
+function playSnd(id){const a=$(id); if(!a) return; try{a.currentTime=0; a.play().then(()=>{soundLocked=false;$('mute').classList.remove('show');}).catch(e=>{if(e&&e.name==='NotAllowedError'){soundLocked=true;$('mute').classList.add('show');}});}catch(e){}}
+function unlockSounds(){ if(!soundLocked) return; ['snd','snd2','snd3'].forEach(id=>{const a=$(id); if(a){a.muted=true; a.play().then(()=>{a.pause();a.currentTime=0;a.muted=false;}).catch(()=>{a.muted=false;});}}); soundLocked=false; $('mute').classList.remove('show'); }
+document.addEventListener('pointerdown',unlockSounds,true); document.addEventListener('keydown',unlockSounds,true);
 // Pac-Man eats an ad: when Pi-hole's blocked count goes up, chomp through the dots and play nom.mp3 (rate-limited; config alerts.*)
 let lastBlocked=null, lastNom=0, chompTimer=null;
 function nom(blocked,quiet){
@@ -153,7 +161,7 @@ function nom(blocked,quiet){
  if(prev==null||blocked<=prev||A.sound_pacman===false) return;
  if(quiet&&!A.pacman_in_quiet) return;
  const gap=(A.pacman_gap_s==null?60:+A.pacman_gap_s)*1000; if(Date.now()-lastNom<gap) return; lastNom=Date.now();
- try{const a=$('snd3');a.currentTime=0;a.play().catch(()=>{});}catch(e){}
+ playSnd('snd3');
  const pac=document.querySelector('.pac'), dots=$('pac-dots'); if(!pac||!dots) return;
  pac.classList.add('chomp'); clearInterval(chompTimer); let n=5; dots.textContent='·····';
  chompTimer=setInterval(()=>{n--; dots.textContent='·'.repeat(Math.max(n,0))+' '.repeat(5-Math.max(n,0)); if(n<=0){clearInterval(chompTimer);setTimeout(()=>{pac.classList.remove('chomp');dots.textContent='·····';},500);}},500);
