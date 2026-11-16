@@ -48,17 +48,36 @@ def cert_days(host):
     dt = datetime.strptime(exp, "%b %d %H:%M:%S %Y %Z").replace(tzinfo=timezone.utc)
     return int((dt - datetime.now(timezone.utc)).total_seconds() // 86400)
 
+def visible(html):
+    """What a visitor actually sees: the page text plus where its links and images point (query strings dropped).
+    Hashing raw HTML flagged a 'change' every 12 h on WordPress (theme/plugin markup churn - WP nonces tick every
+    12 h) with nothing visibly different, so markup, attributes, styles and scripts are ignored. A defacement or
+    a broken deploy still changes the text, the links or the images."""
+    h = re.sub(rb"<(script|style|noscript|template|svg)\b.*?</\1>", b" ", html, flags=re.S | re.I)
+    h = re.sub(rb"<!--.*?-->", b" ", h, flags=re.S)
+    refs = [re.sub(rb"[?#].*", b"", u) for u in re.findall(rb'<(?:a|img|iframe)\b[^>]*?\b(?:href|src)=["\']([^"\']+)', h, flags=re.I)]
+    refs = sorted(set(r for r in refs if r and not r.startswith((b"#", b"javascript:", b"data:")) and b"email-protection" not in r))
+    text = re.sub(rb"<[^>]+>", b" ", h)
+    text = re.sub(rb"&#?\w+;", b" ", text)                     # entities (incl. Cloudflare-obfuscated emails' leftovers)
+    text = re.sub(rb"\b\d{10,}\b", b"", text)                  # stray timestamps
+    text = re.sub(rb"\s+", b" ", text).strip()
+    return text.decode("utf-8", "ignore") + "\n\n# links/images\n" + "\n".join(r.decode("utf-8", "ignore") for r in refs)
+
 def fingerprint(html):
-    # strip the bits that change on every load (nonces, timestamps, csrf) and hash what's left
-    h = re.sub(rb'(nonce|_wpnonce|csrf|token)[=":\s]*[A-Za-z0-9+/=_-]+', b"", html)
-    h = re.sub(rb"\d{10,}", b"", h)
-    h = re.sub(rb"email-protection#[0-9a-f]+", b"email-protection", h)        # Cloudflare email obfuscation rotates per load
-    h = re.sub(rb'data-cfemail="[0-9a-f]+"', b"", h)
-    h = re.sub(rb"[?&](ver|v|_|t|cb|nocache)=[^\"'&\s]+", b"", h)             # cache-busters
-    h = re.sub(rb"<script[^>]*>.*?</script>", b"", h, flags=re.S)             # inline scripts carry nonces/ids
-    h = re.sub(rb"<!--.*?-->", b"", h, flags=re.S)
-    h = re.sub(rb"\s+", b" ", h)
-    return hashlib.sha256(h).hexdigest()[:16]
+    return hashlib.sha256(visible(html).encode()).hexdigest()[:16]
+
+FP_DIR = "/var/lib/housedash/site-fp"   # last visible snapshot per site (survives restarts); <key>.prev.txt kept on a change for diffing
+os.makedirs(FP_DIR, exist_ok=True)
+
+def _fp_load(k):
+    try: return open(f"{FP_DIR}/{k}.fp").read().strip()
+    except Exception: return None
+
+def _fp_save(k, fp, snap, changed):
+    cur = f"{FP_DIR}/{k}.txt"
+    if changed and os.path.exists(cur): os.replace(cur, f"{FP_DIR}/{k}.prev.txt")
+    with open(cur, "w") as f: f.write(snap)
+    with open(f"{FP_DIR}/{k}.fp", "w") as f: f.write(fp)
 
 _last_fp = {}
 
@@ -73,11 +92,14 @@ def check(site, creds):
             r.update(up=200 <= resp.status < 400, status=resp.status, ms=int((time.time() - t0) * 1000))
             title = re.search(rb"<title[^>]*>(.*?)</title>", body, re.I | re.S)
             r["title"] = title.group(1).decode("utf-8", "ignore").strip()[:60] if title else ""
-            fp = fingerprint(body)
+            snap = visible(body); fp = hashlib.sha256(snap.encode()).hexdigest()[:16]
             r["fingerprint"] = fp
-            prev = _last_fp.get(site["key"])
+            k0 = site["key"]
+            if k0 not in _last_fp: _last_fp[k0] = _fp_load(k0)
+            prev = _last_fp[k0]
             r["changed"] = bool(prev and prev != fp)
-            _last_fp[site["key"]] = fp
+            if prev != fp: _fp_save(k0, fp, snap, r["changed"])
+            _last_fp[k0] = fp
     except Exception as e:
         r.update(err=str(e)[:70], ms=int((time.time() - t0) * 1000))
     # notifications: down after 2 consecutive failures (no flapping), recovery, content change, cert running out
@@ -88,7 +110,7 @@ def check(site, creds):
     else:
         if fails >= 2: notify.send("site_down", f"{site['name']} is back up", f"{r['ms']} ms", tags=["green_circle"], dedupe="up:" + k, dedupe_s=600)
         _fails[k] = 0
-    if r.get("changed"): notify.send("site_changed", f"{site['name']}: home page changed", "content fingerprint differs from the last check - look at it", priority=4, tags=["eyes"], dedupe="chg:" + k, dedupe_s=21600)
+    if r.get("changed"): notify.send("site_changed", f"{site['name']}: home page changed", f"the visible text, links or images changed - diff on the Pi: diff {FP_DIR}/{k}.prev.txt {FP_DIR}/{k}.txt", priority=4, tags=["eyes"], dedupe="chg:" + k, dedupe_s=21600)
     try:
         r["cert_days"] = cert_days(host)
         if r["cert_days"] <= 14: notify.send("cert_expiring", f"{site['name']}: TLS cert expires in {r['cert_days']} d", host, priority=4, tags=["lock"], dedupe="cert:" + k, dedupe_s=86400)

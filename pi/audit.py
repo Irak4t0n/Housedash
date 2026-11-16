@@ -7,6 +7,14 @@ import hdconfig, notify
 
 SEC = "/var/lib/housedash/security.json"
 LAST = "/var/lib/housedash/audit-last.json"
+KNOWN = "/var/lib/housedash/audit-known.json"   # every device ever seen (by MAC) + every port it has ever had open
+
+def _key(ip, h): return (h.get("mac") or ip).lower()
+
+def _remember(known, ip, h):
+    e = known.setdefault(_key(ip, h), {"vendor": h.get("vendor", ""), "ports": [], "ips": [], "first": int(time.time())})
+    e["ports"] = sorted(set(e["ports"]) | set(h.get("ports", []))); e["ips"] = sorted(set(e["ips"]) | {ip})[-8:]
+    e["last"] = int(time.time()); e["vendor"] = e.get("vendor") or h.get("vendor", "")
 
 def subnet():
     cfg = hdconfig.load()["security"]
@@ -49,6 +57,19 @@ def main():
         for ip in prev:
             if ip not in hosts: diff["gone_hosts"].append(ip)
     json.dump(hosts, open(LAST + ".tmp", "w")); os.replace(LAST + ".tmp", LAST)
+    # Alert only on what's never been seen before. Diffing against last night alone re-announced every TV/phone
+    # that happened to be off (or on another DHCP lease) during one scan. Known = every device ever seen, by MAC
+    # (IP for the Pi itself, which nmap reports without one), with every port it has ever had open.
+    try: known = json.load(open(KNOWN))
+    except Exception:                               # first run of this logic: everything in last night's scan counts as known
+        known = {}
+        for ip, h in (prev or {}).items(): _remember(known, ip, h)
+    before = {k: set(v["ports"]) for k, v in known.items()}
+    if prev is not None:
+        diff["new_hosts"] = [{"ip": ip, "vendor": h["vendor"], "ports": h["ports"]} for ip, h in hosts.items() if _key(ip, h) not in before]
+        diff["new_ports"] = [{"ip": ip, "port": p} for ip, h in hosts.items() if _key(ip, h) in before for p in h["ports"] if p not in before[_key(ip, h)]]
+    for ip, h in hosts.items(): _remember(known, ip, h)
+    json.dump(known, open(KNOWN + ".tmp", "w")); os.replace(KNOWN + ".tmp", KNOWN)
     exposed = sorted(((ip, h["ports"]) for ip, h in hosts.items() if h["ports"]), key=lambda x: -len(x[1]))
     d = _load()
     d["audit"] = {"ts": int(time.time()), "range": rng, "hosts": len(hosts), "secs": int(time.time() - t0), "diff": diff,
