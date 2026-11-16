@@ -24,6 +24,7 @@ Everything is configured from a settings page on the Pi (no files to edit), and 
 | **Flight brief** | FAA UASFM + Class Airspace layers, FAA TFR list, NOAA SWPC, Open-Meteo | airspace class and **LAANC ceiling** at your point, active **TFRs within N nm**, sunrise/sunset/golden hour, **Kp**, wind at 400 ft, and a GO / CAUTION / NO-GO verdict with reasons |
 | **Radar · Tropics** | radar.weather.gov, NHC CurrentStorms | your NWS radar loop; active Atlantic systems (class, kt, mb, movement) with a push when a new one forms |
 | **Security** | built-in | **honeypot** on ports nothing should touch (ftp/telnet/smb/rdp/vnc/mssql) with every hit logged + pushed; **nightly nmap audit** of the LAN diffed against the last run (new hosts, new open ports) |
+| **Pilot missions** | your login to a Floot-built pilot-ops portal (default: Eagle Sight Drone Intelligence Group) | missions assigned to you with status, site, date and capture package; the next one also shows on **Flight brief**; push on a new assignment or a status change (reshoot = urgent). Off by default (the grid is full) - tick it under Cards. Login: `sudo housedash-add esdig you@example.com` (asks for the password, stored root-only) |
 | **The wire** | RSS + ESPN | UFC results & next card, hacker/infosec, esports, gaming, Hacker News, drones — every feed configurable, add your own |
 
 Also folded into existing cards: **who's home** (phones by IP, home/away with "since") and **Wake-on-LAN buttons** on the Devices card; **PiSugar battery / mains** and an hourly **speed-test sparkline** on the Internet card; **rip-current risk** and the marine forecast on the Tide card; **domain expiry** (RDAP) next to the TLS days on Websites.
@@ -112,6 +113,7 @@ pi/sites.py      every 20 s   websites
 pi/ticker.py     every 5 m    the wire (RSS + ESPN scoreboard)
 pi/gcal.py       every 5 m    iCal feeds
 pi/printers.py   live         Anycubic LAN-mode MQTT (venv: anycubic-lan)
+pi/esdig.py      every 5 m    pilot-ops portal missions (read-only, own login) -> esdig.json + push
 pi/canary.py     live         honeypot listeners -> security.json + push
 pi/audit.py      nightly      nmap diff of the LAN (timer, hour configurable)
 pi/speedtest.py  hourly       speedtest-cli history + sparkline (timer)

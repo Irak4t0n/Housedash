@@ -171,6 +171,7 @@ def calendar(): return _sidecar("calendar")    # written by gcal.py (iCal feeds)
 def ticker(): return _sidecar("ticker")        # written by ticker.py (UFC + hacker/esports/gaming/drone wire)
 def speed(): return _sidecar("speed")          # written by speedtest.py (hourly)
 def security(): return _sidecar("security")    # written by canary.py / audit.py
+def esdig(): return _sidecar("esdig")          # written by esdig.py (pilot missions portal)
 
 # ---- PiSugar: battery + mains, via pisugar-server's TCP API on :8423 ----
 _power = {"plugged": None, "since": None}
@@ -353,7 +354,7 @@ def main():
         pub = json.loads(json.dumps(cfg)); pub["notify"]["topic"] = "set" if cfg["notify"].get("topic") else ""   # topic stays off the LAN-visible state
         state = {"cfg": pub, "ts": int(time.time()), "pihole": pihole(), "wg": wireguard(), "lan": lan(),
                  "wiz": wiz(), "printers": printers(), "sys": system(), "out": outdoors(),
-                 "sites": sites(), "cal": calendar(), "ticker": ticker(), "speed": speed(), "security": security(),
+                 "sites": sites(), "cal": calendar(), "ticker": ticker(), "speed": speed(), "security": security(), "esdig": esdig(),
                  "power": power(cfg), "notify_log": notify.recent(12), "dns": dns_guard(), "ble": ble(cfg), "tz": timezone(cfg)}
         away_rule(cfg, state["lan"], state["wiz"], state["ble"])
         tmp = OUT + ".tmp"

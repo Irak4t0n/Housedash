@@ -2,6 +2,7 @@
 # housedash-add - command-line alternative to the settings page for the two secrets.
 #   housedash-add wp  SITEKEY USER 'xxxx xxxx xxxx xxxx xxxx xxxx'   WordPress application password for a site in config (its "key")
 #   housedash-add cal "Name" https://...basic.ics [#color]           a calendar's secret iCal address -> calendar card
+#   housedash-add esdig you@example.com                               pilot-ops portal login (prompts for the password) -> Pilot missions card
 set -e
 [ "$(id -u)" = 0 ] || exec sudo "$0" "$@"
 mkdir -p /etc/housedash; chmod 755 /etc/housedash
@@ -19,5 +20,13 @@ case "$1" in
     chmod 600 /etc/housedash/calendars.txt
     systemctl restart housedash-calendar
     sleep 8; python3 -c "import json;d=json.load(open('/var/lib/housedash/calendar.json'));print(len(d.get('events',[])),'events today/tomorrow;',d.get('errs') or 'no errors')" ;;
-  *) sed -n '2,4p' "$0" ;;
+  esdig)
+    [ $# -ge 2 ] || { echo "usage: housedash-add esdig EMAIL   (asks for the portal password, hidden)"; exit 1; }
+    PW="${3:-}"; [ -n "$PW" ] || { read -r -s -p "Pilot portal password for $2: " PW </dev/tty; echo; }
+    printf 'ESDIG_EMAIL=%s\nESDIG_PASS=%s\n' "$2" "$PW" > /etc/housedash/esdig.env.new
+    chmod 600 /etc/housedash/esdig.env.new; mv /etc/housedash/esdig.env.new /etc/housedash/esdig.env
+    rm -f /var/lib/housedash/esdig_seen.json   # new login: learn the current missions quietly, alert only on changes after this
+    systemctl restart housedash-esdig
+    sleep 12; python3 -c "import json;d=json.load(open('/var/lib/housedash/esdig.json'));print('missions:',d.get('total'),'active:',len(d.get('active') or []),'counts:',d.get('counts'),'err:',d.get('err'))" ;;
+  *) sed -n '2,5p' "$0" ;;
 esac

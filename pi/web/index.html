@@ -113,6 +113,7 @@ body.tv .bt b{display:none}
  <section class="card" data-card="flight"><h2><span class="lbltxt">Flight brief</span> <span id="fl-verdict"></span></h2><div class="list" id="flight"></div></section>
  <section class="card" data-card="radar"><h2><span class="lbltxt">Radar · Tropics</span> <span class="sub" id="rd-sum"></span></h2><div class="radarwrap"><img id="radar-img" alt=""></div><div class="list" id="storms"></div></section>
  <section class="card" data-card="security"><h2><span class="lbltxt">Security</span> <span class="sub" id="sec-sum"></span></h2><div class="list" id="security"></div></section>
+ <section class="card" data-card="esdig"><h2><span class="lbltxt">Pilot missions</span> <span class="sub" id="es-sum"></span></h2><div class="list" id="esdig"></div></section>
 </main>
 <footer id="ticker"><div class="lbl" id="wirebtn" title="open the full wire">WIRE ▴</div><div class="win"><div id="track"></div></div></footer>
 <div id="qr"><div class="qr-box"><div id="qr-img"></div><div class="qr-meta"><div id="qr-text"></div><div id="qr-src" class="sub"></div><div id="qr-hint" class="sub"></div></div></div></div>
@@ -240,6 +241,15 @@ function render(s){
      +(fb.nogo&&fb.nogo.length?`<div class="tip" style="color:var(--bad)">${fb.nogo.join(' · ')}</div>`:'<div class="tip">clear to fly</div>')
      +(fb.tfrs||[]).slice(0,2).map(t=>`<div class="sub" style="margin-top:.2vw">⚠ ${t.nm!=null?t.nm+' nm · ':''}${t.type}: ${t.desc}</div>`).join('');
  } else if(fb&&fb.err){$('flight').innerHTML=`<div class="stale">${fb.err}</div>`}
+ // pilot missions (esdig.py): own card, plus the next active mission on the Flight brief card
+ const es=s.esdig; if(es&&es.ok){
+   const mDay=d=>{if(!d)return 'no date';const t=new Date(d.length<=10?d+'T12:00':d);if(isNaN(t))return d.slice(0,10);const a=new Date();a.setHours(0,0,0,0);const b=new Date(t);b.setHours(0,0,0,0);const n=Math.round((b-a)/864e5);return n===0?'today':n===1?'tomorrow':n===-1?'yesterday':t.toLocaleDateString([], {month:'short',day:'numeric'})};
+   const act=es.active||[], ct=es.counts||{}, max=(CFG&&CFG.esdig&&CFG.esdig.max_rows)||4;
+   $('es-sum').textContent=Object.entries(ct).map(([k,v])=>v+' '+((es.cls_counts||{})[k]||k).split(' ·')[0].toLowerCase()).join(' · ')||'no missions';
+   $('esdig').innerHTML=(act.length?act.slice(0,max).map(m=>`<div class="row" style="flex-direction:column;align-items:stretch"><div style="display:flex;justify-content:space-between"><span class="n"><i class="dot ${m.cls}"></i><a href="${esc(es.url)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">${esc(m.title)}</a></span><span class="v">${mDay(m.date)}</span></div><div class="sub" style="margin-top:0">${esc(m.label)}${m.where?' · '+esc(m.where):''}${m.pkg?' · '+esc(m.pkg.toUpperCase()):''}</div></div>`).join('')
+     +(act.length>max?`<div class="sub">+${act.length-max} more</div>`:''):'<div class="tip">nothing assigned - all caught up</div>');
+   const nx=act[0]; if(nx&&fb&&fb.ok) $('flight').innerHTML+=`<div class="sub" style="margin-top:.3vw"><i class="dot ${nx.cls}"></i><b style="color:var(--fg);font-weight:500">Next mission:</b> ${esc(nx.title)} · ${mDay(nx.date)} · ${esc(nx.label)}${act.length>1?` (+${act.length-1})`:''}</div>`;
+ } else if(es&&es.err){$('es-sum').textContent=''; $('esdig').innerHTML=`<div class="stale">${esc(es.err)}</div>`}
  // radar + tropics
  const rd=o.radar; if(rd&&rd.img){const im=$('radar-img'); const src=rd.img+'?'+Math.floor(Date.now()/300000); if(im.dataset.src!==src){im.src=src;im.dataset.src=src;}}
  const tr=o.tropics; if(tr&&tr.ok){const at=tr.atlantic||[]; $('rd-sum').textContent=at.length?at.length+' Atlantic system'+(at.length>1?'s':''):(tr.storms.length?tr.storms.length+' active (none Atlantic)':'tropics quiet');

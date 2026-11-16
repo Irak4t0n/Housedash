@@ -7,7 +7,7 @@ PATH = "/etc/housedash/config.json"
 
 DEFAULTS = {
     "title": "HOME",
-    "intervals": {"collect": 10, "page": 5, "sites": 20, "internet": 10, "outdoors": 600, "ticker": 300},
+    "intervals": {"collect": 10, "page": 5, "sites": 20, "internet": 10, "outdoors": 600, "ticker": 300, "esdig": 300},
     "alerts": {"quiet_start": 22, "quiet_end": 7, "return_gap_h": 2, "return_cooldown_h": 6,
                "sound_new": True, "sound_return": True, "banner_new_s": 20, "banner_return_s": 12,
                "sound_pacman": True, "pacman_gap_s": 60, "pacman_in_quiet": False},   # "nom" when Pi-hole eats an ad, at most every N s
@@ -20,6 +20,7 @@ DEFAULTS = {
         {"id": "net", "label": "Internet · Pi", "on": True}, {"id": "sites", "label": "Websites", "on": True},
         {"id": "cal", "label": "Calendar", "on": True}, {"id": "flight", "label": "Flight brief", "on": True},
         {"id": "radar", "label": "Radar · Tropics", "on": True}, {"id": "security", "label": "Security", "on": True},
+        {"id": "esdig", "label": "Pilot missions", "on": False},   # off by default (5x3 grid is full); the next mission also shows on Flight brief
     ],
     "grid": {"columns": 5, "rows": 3},
     # push notifications via ntfy (install the ntfy app, subscribe to the topic shown on the settings page)
@@ -27,7 +28,9 @@ DEFAULTS = {
                "events": {"new_device": True, "device_back": False, "person_home": True, "person_away": False,
                           "print_done": True, "print_error": True, "site_down": True, "site_changed": True,
                           "cert_expiring": True, "domain_expiring": True, "power": True, "canary": True, "audit": True,
-                          "storm": True, "test": True}},
+                          "storm": True, "esdig_new": True, "esdig_status": True, "test": True}},
+    # pilot missions from a Floot pilot-ops portal (esdig.py); login lives in /etc/housedash/esdig.env
+    "esdig": {"on": True, "url": "https://operations.eaglesightdroneintelligence.com", "max_rows": 4},
     "wol": [],          # [{"name": "Desktop", "mac": "aa:bb:cc:dd:ee:ff", "ip": "192.168.1.20"}]  wake-on-LAN targets
     "people": [],       # [{"name": "Me", "ip": "192.168.1.30"}]  phones, for who's-home
     "rules": {"lights_off_when_away": False, "away_minutes": 20},

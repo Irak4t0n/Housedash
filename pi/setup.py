@@ -110,7 +110,8 @@ def section_html(c, sec):
         labels = {"new_device": "new device on the network", "device_back": "known device back after hours away", "person_home": "someone comes home", "person_away": "someone leaves / lights-off rule fired",
                   "print_done": "print finished", "print_error": "printer error or paused", "site_down": "website down / back up", "site_changed": "website home page changed",
                   "cert_expiring": "TLS cert < 14 days", "domain_expiring": "domain registration < 30 days", "power": "mains power lost / restored (PiSugar)", "canary": "honeypot touched",
-                  "audit": "nightly port scan found changes", "storm": "new tropical storm / hurricane in the Gulf", "test": "test button"}
+                  "audit": "nightly port scan found changes", "storm": "new tropical storm / hurricane in the Gulf",
+                  "esdig_new": "pilot portal: new mission assigned to you", "esdig_status": "pilot portal: a mission's status changed (reshoot, verified, paid...)", "test": "test button"}
         boxes = "".join(f"<p style='margin:4px 0'>{chk('ev_' + k, ev.get(k, True))} {E(v)}</p>" for k, v in labels.items())
         sub = f"{n['server'].rstrip('/')}/{n['topic']}"
         qr = ""
