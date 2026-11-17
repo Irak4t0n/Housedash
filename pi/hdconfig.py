@@ -35,7 +35,7 @@ DEFAULTS = {
     "people": [],       # [{"name": "Me", "ip": "192.168.1.30"}]  phones, for who's-home
     "rules": {"lights_off_when_away": False, "away_minutes": 20},
     "power": {"on": True},                       # PiSugar battery / mains watch (pisugar-server on :8423)
-    "speedtest": {"on": True, "interval_min": 60},
+    "speedtest": {"on": True, "interval_min": 180},   # speedtest-cli is the biggest memory spike on a Pi Zero 2 W - every 3 h, not hourly
     "flight": {"on": True, "max_wind_mph": 18, "max_kp": 5, "tfr_radius_nm": 40},
     "radar": {"station": "KMOB"},                # NWS radar site id (radar.weather.gov)
     "marine": {"zone": "GMZ650", "surf_office": "MOB"},   # NWS marine zone + the WFO that issues the surf-zone forecast
@@ -70,7 +70,7 @@ DEFAULTS = {
     "timezone": "",     # IANA zone for the clock on every screen, e.g. America/Chicago; blank = the Pi's own
     "santa": {"on": True, "scene": True, "every_min": 5, "show_s": 30, "every_min_eve": 3},   # Santa tracker: strip in the top margin + an animated scene (elf village Dec 1-24,
                                                                                               # flight map on Christmas Eve) that visits as an overlay; never moves a card
-    "roku": {"on": False, "interval": 15},   # render.py draws the dashboard to /roku.png every N s for the Roku screensaver channel (roku/)
+    "roku": {"on": False, "interval": 60},   # render.py draws the dashboard to /roku.png every N s for the Roku screensaver channel (roku/)
     "ble_lights": {},   # mac: {"name","kind"}  Bluetooth controllers the Pi drives itself - Zengge/Magic Home (LEDnetWF*) and
                         # Magic Lantern (MELK-*/ELK-BLEDOM). Found by "Scan" on the settings page; kind is lednetwf or elk.
     "hosts": {},        # ip: name  (devices whose presence to show)

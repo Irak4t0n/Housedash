@@ -107,6 +107,8 @@ Then Settings -> Screensaver -> **House Dashboard**. No remote interaction on th
 ## How it's put together
 
 ```
+pi/workers.py                 runs collect / outdoors / sites / ticker / gcal / esdig / printers as threads in ONE process
+                              (housedash-workers; the old unit names are aliases) - fits a 512 MB Pi Zero 2 W
 pi/collect.py    every 10 s   Pi-hole API, wg show, device presence + new/returning logic, WiZ, Pi stats
 pi/outdoors.py   10 s / 10 m  internet health / NWS + NOAA + fishing
 pi/sites.py      every 20 s   websites

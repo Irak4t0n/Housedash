@@ -319,10 +319,7 @@ def printers():
         if st.get("progress") is not None and st["progress"] <= 1.0: st["progress"] = round(100 * st["progress"])
         for k in ("nozzle", "bed"):
             if isinstance(st.get(k), (int, float)): st[k] = round(st[k])
-        if _last_state.get(ip) == "printing" and state in ("finished", "complete", "completed", "done"):
-            _log_print(ip, name, st.get("file") or "", int(st.get("elapsed") or 0))
-            st["count"] = _print_counts()[ip]
-        if state: _last_state[ip] = state
+        # finished prints are logged by printers.py (it sees every transition live); this just counts them
         out.append(st)
     return {"ok": True, "printers": out}
 

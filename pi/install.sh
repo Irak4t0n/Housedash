@@ -9,7 +9,7 @@ apt-get install -y -qq python3 python3-venv python3-qrcode python3-pil fonts-dej
 id housedash >/dev/null 2>&1 || useradd -r -s /usr/sbin/nologin housedash
 echo "== files"
 mkdir -p /opt/housedash /var/lib/housedash/sounds /etc/housedash
-install -m755 collect.py outdoors.py sites.py ticker.py gcal.py printers.py setup.py speedtest.py canary.py audit.py blelights.py render.py esdig.py /opt/housedash/
+install -m755 collect.py outdoors.py sites.py ticker.py gcal.py printers.py setup.py speedtest.py canary.py audit.py blelights.py render.py esdig.py workers.py /opt/housedash/
 install -m644 hdconfig.py notify.py wizctl.py flight.py /opt/housedash/
 install -m755 extras/unbound-setup.sh /usr/local/sbin/unbound-setup.sh
 install -m755 housedash-add /usr/local/sbin/housedash-add
@@ -38,9 +38,14 @@ if [ ! -f /etc/housedash/config.json ]; then
   printf '{"network": {"pi_ip": "%s"}}\n' "$IP" > /etc/housedash/config.json
 fi
 echo "== services"
+# the seven collectors now run in one process (housedash-workers); their old unit files become aliases of it
+for s in collect outdoors sites ticker calendar printers esdig; do
+  f=/etc/systemd/system/housedash-$s.service
+  if [ -f "$f" ] && [ ! -L "$f" ]; then systemctl disable --now housedash-$s >/dev/null 2>&1 || true; rm -f "$f"; fi
+done
 install -m644 systemd/*.service systemd/*.timer /etc/systemd/system/
 systemctl daemon-reload
-for s in collect outdoors sites ticker calendar printers web setup canary render esdig; do systemctl enable --now housedash-$s >/dev/null 2>&1 || true; systemctl restart housedash-$s; done
+for s in workers web setup canary render; do systemctl enable --now housedash-$s >/dev/null 2>&1 || true; systemctl restart housedash-$s; done
 systemctl enable --now housedash-speedtest.timer housedash-audit.timer housedash-blescan.timer >/dev/null 2>&1 || true
 sleep 3
 echo

@@ -1,0 +1,14 @@
+[Unit]
+Description=House dashboard: collectors (collect, outdoors, sites, ticker, calendar, esdig, printers) in one process
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/opt/housedash/venv/bin/python /opt/housedash/workers.py
+Restart=always
+RestartSec=15
+Nice=10
+
+[Install]
+WantedBy=multi-user.target
+Alias=housedash-collect.service housedash-outdoors.service housedash-sites.service housedash-ticker.service housedash-calendar.service housedash-esdig.service housedash-printers.service
